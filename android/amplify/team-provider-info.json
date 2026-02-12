@@ -1,0 +1,74 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-android-dev-b0bef-authRole",
+      "UnauthRoleArn": "arn:aws:iam::096632469001:role/amplify-android-dev-b0bef-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::096632469001:role/amplify-android-dev-b0bef-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-android-dev-b0bef-deployment",
+      "UnauthRoleName": "amplify-android-dev-b0bef-unauthRole",
+      "StackName": "amplify-android-dev-b0bef",
+      "StackId": "arn:aws:cloudformation:ap-south-1:096632469001:stack/amplify-android-dev-b0bef/ffe31ca0-01f7-11f1-b277-02b7c28cd4eb",
+      "AmplifyAppId": "d7ivdf89lj5jt"
+    },
+    "categories": {
+      "auth": {
+        "android5e62981b": {}
+      }
+    }
+  },
+  "flutter": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-android-flutter-897cd-authRole",
+      "UnauthRoleArn": "arn:aws:iam::096632469001:role/amplify-android-flutter-897cd-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::096632469001:role/amplify-android-flutter-897cd-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-android-flutter-897cd-deployment",
+      "UnauthRoleName": "amplify-android-flutter-897cd-unauthRole",
+      "StackName": "amplify-android-flutter-897cd",
+      "StackId": "arn:aws:cloudformation:ap-south-1:096632469001:stack/amplify-android-flutter-897cd/c8cdbe40-01f8-11f1-8482-02d1041c3003",
+      "AmplifyAppId": "d7ivdf89lj5jt"
+    },
+    "categories": {
+      "auth": {
+        "android5e62981b": {}
+      }
+    }
+  },
+  "surakshas": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-android-surakshas-37946-authRole",
+      "UnauthRoleArn": "arn:aws:iam::096632469001:role/amplify-android-surakshas-37946-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::096632469001:role/amplify-android-surakshas-37946-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-android-surakshas-37946-deployment",
+      "UnauthRoleName": "amplify-android-surakshas-37946-unauthRole",
+      "StackName": "amplify-android-surakshas-37946",
+      "StackId": "arn:aws:cloudformation:ap-south-1:096632469001:stack/amplify-android-surakshas-37946/970b9840-01f9-11f1-b57d-06a1390aa16b",
+      "AmplifyAppId": "d7ivdf89lj5jt",
+      "AuthTriggerTemplateURL": "https://s3.amazonaws.com/amplify-android-surakshas-37946-deployment/amplify-cfn-templates/auth/auth-trigger-cloudformation-template.json"
+    },
+    "categories": {
+      "api": {
+        "android": {}
+      },
+      "auth": {
+        "AUTH": {}
+      },
+      "function": {
+        "AUTHDefineAuthChallenge": {
+          "deploymentBucketName": "amplify-android-surakshas-37946-deployment",
+          "s3Key": "amplify-builds/AUTHDefineAuthChallenge-2b647465614b55784258-build.zip"
+        },
+        "AUTHVerifyAuthChallengeResponse": {
+          "deploymentBucketName": "amplify-android-surakshas-37946-deployment",
+          "s3Key": "amplify-builds/AUTHVerifyAuthChallengeResponse-6776316d5448372f3768-build.zip"
+        },
+        "AUTHCreateAuthChallenge": {
+          "deploymentBucketName": "amplify-android-surakshas-37946-deployment",
+          "s3Key": "amplify-builds/AUTHCreateAuthChallenge-36332b32636e64706647-build.zip"
+        }
+      }
+    }
+  }
+}

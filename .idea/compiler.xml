@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <bytecodeTargetLevel>
+      <module name="android.cloud_firestore" target="21" />
+      <module name="android.firebase_auth" target="21" />
+      <module name="android.firebase_core" target="21" />
+      <module name="android.flutter_blue_plus_android" target="21" />
+      <module name="android.geolocator_android" target="21" />
+      <module name="android.location" target="21" />
+      <module name="android.permission_handler_android" target="21" />
+      <module name="io.flutter.plugins.firebase.auth.android.firebase_auth" target="21" />
+      <module name="io.flutter.plugins.firebase.cloudfirestore.android.cloud_firestore" target="21" />
+      <module name="io.flutter.plugins.firebase.core.android.firebase_core" target="21" />
+    </bytecodeTargetLevel>
+  </component>
+</project>
