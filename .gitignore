@@ -3,3 +3,4 @@ build/
 *.iml
 .gradle/
 **/intermediates/
+.dart_tool/
