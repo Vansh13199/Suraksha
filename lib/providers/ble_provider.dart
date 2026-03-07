@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../services/esp32_ble_service.dart';
+import '../services/esp32_sos_service.dart'; // UPDATED to SOS Service
 
 class BleProvider extends ChangeNotifier {
-  final Esp32BleService _bleService = Esp32BleService();
+  final Esp32SosService _bleService = Esp32SosService(); // UPDATED
   bool _isConnected = false;
   List<ScanResult> _scanResults = [];
   bool _isScanning = false;
@@ -18,7 +18,7 @@ class BleProvider extends ChangeNotifier {
   }
 
   void _init() {
-    _bleService.init();
+    _bleService.init(); // Ensure init is called
     _bleService.connectionStateStream.listen((isConnected) {
       _isConnected = isConnected;
       notifyListeners();

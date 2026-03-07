@@ -1,0 +1,7 @@
+{
+    "AppSyncApiName": "android",
+    "DynamoDBBillingMode": "PAY_PER_REQUEST",
+    "DynamoDBEnableServerSideEncryption": false,
+    "S3DeploymentBucket": "amplify-android-surakshas-37946-deployment",
+    "S3DeploymentRootKey": "amplify-appsync-files/fa1d4e0756e7c489d3f838c62a825cf32c14d5c1"
+}

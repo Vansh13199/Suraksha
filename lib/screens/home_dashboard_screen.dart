@@ -9,7 +9,6 @@ import 'sos_active_screen.dart';
 import 'device_pairing_screen.dart';
 import 'emergency_contacts_screen.dart';
 import 'settings_screen.dart';
-
 import 'location_privacy_screen.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
@@ -32,88 +31,169 @@ class HomeDashboardScreen extends StatelessWidget {
     final bleProvider = Provider.of<BleProvider>(context);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         title: const Text("Suraksha+"),
+        titleTextStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: AppTheme.textDark,
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-            },
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.settings_rounded),
+              onPressed: () {
+                 Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              },
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Status Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: bleProvider.isConnected ? AppTheme.successGreen.withOpacity(0.1) : AppTheme.errorRed.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: bleProvider.isConnected ? AppTheme.successGreen : AppTheme.errorRed,
-                ),
-              ),
-              child: Row(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppTheme.backgroundLight,
+              const Color(0xFFE8F1FF), // Slightly darker tint at bottom
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 120, 24, 24), // Top padding for AppBar
+          child: Column(
+            children: [
+              // Status Section
+              _buildStatusCard(context, bleProvider.isConnected),
+              
+              const SizedBox(height: 60),
+              
+              // SOS Button Area
+              Column(
                 children: [
-                  Icon(
-                    bleProvider.isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                    color: bleProvider.isConnected ? AppTheme.successGreen : AppTheme.errorRed,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    bleProvider.isConnected ? "Safety Device Connected" : "Device Disconnected",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  if (!bleProvider.isConnected)
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const DevicePairingScreen()));
-                      },
-                      child: const Text("PAIR"),
+                  Hero(
+                    tag: 'sos_button',
+                    child: SosButton(
+                      onLongPress: () => _onSosTriggered(context),
+                      size: 220,
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    "HOLD TO ALERT",
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppTheme.textGrey,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Press and hold for 3 seconds to send SOS",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textGrey.withOpacity(0.7),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 48),
-            
-            // SOS Button
-            Center(
-              child: SosButton(
-                onLongPress: () => _onSosTriggered(context),
+
+              const SizedBox(height: 60),
+
+              // Quick Actions
+              Text(
+                "Quick Actions",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-             const Text(
-              "Long Press to send SOS",
-              style: TextStyle(color: AppTheme.textGrey),
-            ),
-
-            const SizedBox(height: 48),
-
-            // Quick Actions
-            InfoCard(
-              title: "Emergency Contacts",
-              content: "Manage trusted contacts",
-              icon: Icons.contact_phone,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyContactsScreen()));
-              },
-            ),
-            InfoCard(
-              title: "Location Privacy",
-              content: "Location enabled only during SOS",
-              icon: Icons.location_on,
-              onTap: () {
-                 Navigator.push(context, MaterialPageRoute(builder: (_) => const LocationPrivacyScreen()));
-              },
-            ),
-          ],
+              const SizedBox(height: 16),
+              InfoCard(
+                title: "Emergency Contacts",
+                content: "Manage trusted contacts",
+                icon: Icons.contact_phone_rounded,
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyContactsScreen()));
+                },
+              ),
+              const SizedBox(height: 16),
+              InfoCard(
+                title: "Location Privacy",
+                content: "Location enabled only during SOS",
+                icon: Icons.location_on_rounded,
+                onTap: () {
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => const LocationPrivacyScreen()));
+                },
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusCard(BuildContext context, bool isConnected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: isConnected ? AppTheme.successGreen.withOpacity(0.1) : AppTheme.alertRed.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isConnected ? AppTheme.successGreen.withOpacity(0.3) : AppTheme.alertRed.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isConnected ? AppTheme.successGreen : AppTheme.alertRed,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isConnected ? Icons.bluetooth_connected_rounded : Icons.bluetooth_disabled_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isConnected ? "Device Connected" : "Device Disconnected",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  isConnected ? "Ready for SOS trigger" : "Tap to pair device",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!isConnected)
+            TextButton(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const DevicePairingScreen()));
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.alertRed,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              child: const Text("PAIR"),
+            ),
+        ],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../core/constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,9 +14,14 @@ class Esp32BleService {
 
   Esp32BleService._internal();
 
+  // ... (existing code, just ensure it doesn't conflict)
+  // I will just add a constant for the target name
+  static const String targetDeviceName = "Suraksha_GPS";
+
+
   BluetoothDevice? _connectedDevice;
-  BluetoothCharacteristic? _rxCharacteristic;
-  BluetoothCharacteristic? _txCharacteristic;
+  BluetoothCharacteristic? _rxCharacteristic; // ESP32 TX -> App RX (Notify)
+  BluetoothCharacteristic? _txCharacteristic; // App TX -> ESP32 RX (Write)
   StreamSubscription? _scanSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   
@@ -109,9 +115,12 @@ class Esp32BleService {
   Future<void> _discoverServices(BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
     for (var service in services) {
-       // Ideally filter by AppConstants.serviceUuid
+       // Ideally filter by AppConstants.serviceUuid, but checking all for flexibility
        for (var characteristic in service.characteristics) {
-         if (characteristic.uuid.toString().toUpperCase() == AppConstants.characteristicUuidRx) {
+         String uuid = characteristic.uuid.toString().toUpperCase();
+         
+         // RX Characteristic (Notify) - Receive Data
+         if (uuid == AppConstants.characteristicUuidRx) {
            _rxCharacteristic = characteristic;
            // Enable notifications
            await _rxCharacteristic!.setNotifyValue(true);
@@ -131,13 +140,41 @@ class Esp32BleService {
                }
              });
          }
-         if (characteristic.uuid.toString().toUpperCase() == AppConstants.characteristicUuidTx) {
+         
+         // TX Characteristic (Write) - Send Data
+         // Note: naming might be swapped depending on perspective (Central vs Peripheral)
+         // Usually defined in AppConstants which is which.
+         if (uuid == AppConstants.characteristicUuidTx) {
            _txCharacteristic = characteristic;
          }
        }
     }
   }
   
+  Future<void> sendData(String data) async {
+    if (_connectedDevice == null) {
+      throw Exception("Device not connected");
+    }
+    
+    if (_txCharacteristic == null) {
+       // Try to find it again if missing (defensive)
+       if (_connectedDevice != null) {
+         await _discoverServices(_connectedDevice!);
+       }
+       if (_txCharacteristic == null) {
+          throw Exception("Writable Characteristic (TX) not found");
+       }
+    }
+
+    try {
+      await _txCharacteristic!.write(utf8.encode(data), withoutResponse: false);
+      print("Sent to ESP32: $data");
+    } catch (e) {
+      print("Error sending data: $e");
+      rethrow;
+    }
+  }
+
   Future<void> _tryAutoConnect(String deviceId) async {
     // In FlutterBluePlus, we can't get a device object just from ID without scanning 
     // or if it's already in the known system devices.
@@ -163,3 +200,4 @@ class Esp32BleService {
     await prefs.remove(AppConstants.keyPairedDeviceId);
   }
 }
+

@@ -1,0 +1,188 @@
+{
+  "api": {
+    "sosapi": {
+      "dependsOn": [
+        {
+          "attributes": [
+            "Name",
+            "Arn"
+          ],
+          "category": "function",
+          "resourceName": "surakshadd796913"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "API Gateway"
+    },
+    "suraksha": {
+      "dependsOn": [],
+      "output": {
+        "authConfig": {
+          "additionalAuthenticationProviders": [],
+          "defaultAuthentication": {
+            "apiKeyConfig": {
+              "apiKeyExpirationDays": 7
+            },
+            "authenticationType": "API_KEY"
+          }
+        }
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "AppSync"
+    }
+  },
+  "auth": {
+    "suraksha5b7ee2495b7ee249": {
+      "customAuth": true,
+      "dependsOn": [
+        {
+          "attributes": [
+            "Arn",
+            "Name"
+          ],
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249CreateAuthChallenge",
+          "triggerProvider": "Cognito"
+        },
+        {
+          "attributes": [
+            "Arn",
+            "Name"
+          ],
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249DefineAuthChallenge",
+          "triggerProvider": "Cognito"
+        },
+        {
+          "attributes": [
+            "Arn",
+            "Name"
+          ],
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249VerifyAuthChallengeResponse",
+          "triggerProvider": "Cognito"
+        }
+      ],
+      "frontendAuthConfig": {
+        "mfaConfiguration": "OFF",
+        "mfaTypes": [
+          "SMS"
+        ],
+        "passwordProtectionSettings": {
+          "passwordPolicyCharacters": [],
+          "passwordPolicyMinLength": 8
+        },
+        "signupAttributes": [
+          "EMAIL",
+          "PHONE_NUMBER"
+        ],
+        "socialProviders": [],
+        "usernameAttributes": [
+          "PHONE_NUMBER"
+        ],
+        "verificationMechanisms": [
+          "EMAIL"
+        ]
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "Cognito"
+    }
+  },
+  "function": {
+    "suraksha5b7ee2495b7ee249CreateAuthChallenge": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
+    "suraksha5b7ee2495b7ee249DefineAuthChallenge": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
+    "suraksha5b7ee2495b7ee249VerifyAuthChallengeResponse": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
+    "surakshadd796913": {
+      "build": true,
+      "dependsOn": [
+        {
+          "attributes": [
+            "UserPoolId"
+          ],
+          "category": "auth",
+          "resourceName": "suraksha5b7ee2495b7ee249"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    }
+  },
+  "parameters": {
+    "AMPLIFY_function_suraksha5b7ee2495b7ee249CreateAuthChallenge_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249CreateAuthChallenge"
+        }
+      ]
+    },
+    "AMPLIFY_function_suraksha5b7ee2495b7ee249CreateAuthChallenge_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249CreateAuthChallenge"
+        }
+      ]
+    },
+    "AMPLIFY_function_suraksha5b7ee2495b7ee249DefineAuthChallenge_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249DefineAuthChallenge"
+        }
+      ]
+    },
+    "AMPLIFY_function_suraksha5b7ee2495b7ee249DefineAuthChallenge_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249DefineAuthChallenge"
+        }
+      ]
+    },
+    "AMPLIFY_function_suraksha5b7ee2495b7ee249VerifyAuthChallengeResponse_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249VerifyAuthChallengeResponse"
+        }
+      ]
+    },
+    "AMPLIFY_function_suraksha5b7ee2495b7ee249VerifyAuthChallengeResponse_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "suraksha5b7ee2495b7ee249VerifyAuthChallengeResponse"
+        }
+      ]
+    },
+    "AMPLIFY_function_surakshadd796913_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "surakshadd796913"
+        }
+      ]
+    },
+    "AMPLIFY_function_surakshadd796913_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "surakshadd796913"
+        }
+      ]
+    }
+  }
+}

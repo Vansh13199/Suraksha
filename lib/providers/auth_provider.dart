@@ -1,9 +1,13 @@
-import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data'; 
+import 'dart:async'; // Required for Completer
 import 'package:flutter/material.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:amplify_flutter/amplify_flutter.dart' hide AuthProvider; // Avoid conflict with class name
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' hide AuthProvider;
+import 'package:amplify_api/amplify_api.dart'; // Required for RestOptions, ApiException
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
+import 'dart:math';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -135,11 +139,22 @@ class AuthProvider extends ChangeNotifier {
         ),
       );
 
-      safePrint('SignIn result: ${result.nextStep.signInStep}');
+      safePrint('[DEBUG] SignIn result: $result');
+      safePrint('[DEBUG] Step: ${result.nextStep.signInStep}');
+      safePrint('[DEBUG] IsSignedIn: ${result.isSignedIn}');
 
       // Check if we need to confirm with custom challenge (OTP)
       if (result.nextStep.signInStep == AuthSignInStep.confirmSignInWithCustomChallenge) {
         _isAwaitingOtp = true;
+        
+        // Check for Debug OTP
+        final debugOtp = result.nextStep.additionalInfo?['debugOtp'];
+        if (debugOtp != null) {
+          safePrint('----------------------------------------');
+          safePrint('[DEBUG] OTP RECEIVED: $debugOtp');
+          safePrint('----------------------------------------');
+        }
+        
         _isLoading = false;
         notifyListeners();
         return true;
@@ -164,8 +179,17 @@ class AuthProvider extends ChangeNotifier {
       safePrint('User not found, attempting sign up: ${e.message}');
       return await _handleNewUserSignUp(phoneNumber);
     } on AuthException catch (e) {
-      _errorMessage = e.message;
-      safePrint('SendOTP Error: ${e.message}');
+      // FORCE FULL ERROR TO UI for debugging
+      _errorMessage = "Auth Error: ${e.message}\nRecovery: ${e.recoverySuggestion}\nInner: ${e.underlyingException}";
+      safePrint('SendOTP AuthException: $e');
+      safePrint('Recovery Suggestion: ${e.recoverySuggestion}');
+      safePrint('Underlying Exception: ${e.underlyingException}');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = "Unexpected Error: $e";
+      safePrint('SendOTP Unexpected Error: $e');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -175,21 +199,37 @@ class AuthProvider extends ChangeNotifier {
   /// Helper method to handle new user registration and then initiate OTP
   Future<bool> _handleNewUserSignUp(String phoneNumber) async {
     try {
-      // First, sign up the user
-      final signUpSuccess = await signUp(phoneNumber: phoneNumber);
+      safePrint('[SIGNUP] Attempting to create user via API: $phoneNumber');
       
-      if (!signUpSuccess) {
-        _errorMessage = 'Failed to create account. Please try again.';
+      // Call the API to create user (auto-confirms via Lambda)
+      // Call the API to create user (auto-confirms via Lambda)
+      final body = {
+          'action': 'signup',
+          'phoneNumber': phoneNumber,
+          'password': _generateRandomPassword(), 
+      };
+      
+      final response = await Amplify.API.post(
+        '/sos', 
+        apiName: 'sosapi',
+        body: HttpPayload.json(body),
+      ).response;
+
+      safePrint('[SIGNUP] API Response: ${response.statusCode} ${response.body}');
+
+      if (response.statusCode != 200) {
+        _errorMessage = 'Failed to create account (API ${response.statusCode}).';
         _isLoading = false;
         notifyListeners();
         return false;
       }
 
       // Now initiate sign-in for OTP
+      // (User is now CONFIRMED by the lambda)
       final result = await Amplify.Auth.signIn(
         username: phoneNumber,
         options: SignInOptions(
-          pluginOptions: CognitoSignInPluginOptions(
+          pluginOptions: const CognitoSignInPluginOptions(
             authFlowType: AuthenticationFlowType.customAuthWithoutSrp,
           ),
         ),
@@ -199,6 +239,15 @@ class AuthProvider extends ChangeNotifier {
 
       if (result.nextStep.signInStep == AuthSignInStep.confirmSignInWithCustomChallenge) {
         _isAwaitingOtp = true;
+        
+        // Check for Debug OTP
+        final debugOtp = result.nextStep.additionalInfo?['debugOtp'];
+        if (debugOtp != null) {
+          safePrint('----------------------------------------');
+          safePrint('[DEBUG] OTP RECEIVED (New User): $debugOtp');
+          safePrint('----------------------------------------');
+        }
+
         _isLoading = false;
         _errorMessage = null; // Clear any error from the auto-signup
         notifyListeners();
@@ -208,9 +257,21 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return result.isSignedIn;
+    } on ApiException catch (e) {
+       _errorMessage = "SignUp API Error: ${e.message}";
+       safePrint('SignUp API Error: $e');
+       _isLoading = false;
+       notifyListeners();
+       return false;
     } on AuthException catch (e) {
-      _errorMessage = e.message;
-      safePrint('Auto SignUp Error: ${e.message}');
+      _errorMessage = "SignUp Error: ${e.message}\nRecovery: ${e.recoverySuggestion}";
+      safePrint('Auto SignUp Error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = "Unexpected Error: $e";
+      safePrint('Unexpected SignUp Error: $e');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -262,8 +323,12 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _fetchUserDetails() async {
     _isLoading = true;
     notifyListeners();
-    _currentUser = await _authService.getUserDetails();
-    safePrint('[AUTH] _fetchUserDetails: currentUser=${_currentUser?.firstName ?? "NULL"}');
+    try {
+      _currentUser = await _authService.getUserDetails();
+      safePrint('[AUTH] _fetchUserDetails: currentUser=${_currentUser?.firstName ?? "NULL"}');
+    } catch (e) {
+      safePrint('[AUTH] Error fetching user details: $e');
+    }
     _isLoading = false;
     notifyListeners();
   }
@@ -276,6 +341,7 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = updatedUser;
     } catch (e) {
       safePrint("Error: $e");
+      _errorMessage = e.toString();
     }
     _isLoading = false;
     notifyListeners();
@@ -300,10 +366,29 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Generate a random secure password for Cognito (user never sees this)
+  /// Generate a strong secure password for Cognito (user never sees this)
   String _generateRandomPassword() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*';
-    final random = DateTime.now().millisecondsSinceEpoch;
-    return List.generate(16, (index) => chars[(random + index * 7) % chars.length]).join();
+    final random = Random.secure();
+    // Ensure at least one of each required character type
+    const uppers = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowers = 'abcdefghijklmnopqrstuvwxyz';
+    const digits = '0123456789';
+    const symbols = '!@#\$%^&*';
+    
+    String password = '';
+    password += uppers[random.nextInt(uppers.length)];
+    password += lowers[random.nextInt(lowers.length)];
+    password += digits[random.nextInt(digits.length)];
+    password += symbols[random.nextInt(symbols.length)];
+    
+    // Fill the rest (12 chars) with mixed
+    const allChars = '$uppers$lowers$digits$symbols';
+    for (int i = 0; i < 12; i++) {
+        password += allChars[random.nextInt(allChars.length)];
+    }
+    
+    // Shuffle to randomize positions
+    final charList = password.split('')..shuffle(random);
+    return charList.join();
   }
 }

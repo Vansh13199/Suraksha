@@ -1,9 +1,9 @@
 import 'dart:convert';
-import '../models/user_model.dart';
 import 'package:flutter/foundation.dart';
-
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import '../models/user_model.dart';
+import '../models/emergency_contact_model.dart';
 
 class AuthService {
   Future<AuthUser?> get currentUser async {
@@ -38,10 +38,8 @@ class AuthService {
     return null;
   }
 
-  /// Fetch user profile. Strategy:
-  /// 1. Try getUser(id: cognitoSub)
-  /// 2. If not found, search by phone number using listUsers
-  /// 3. If found by phone, migrate record to correct ID
+  /// Fetch user profile by strictly using the Cognito Sub (ID).
+  /// This avoids duplicate accounts created by phone number matching.
   Future<UserModel?> getUserDetails() async {
     try {
       final authUser = await currentUser;
@@ -51,65 +49,41 @@ class AuthService {
       }
 
       final String cognitoId = authUser.userId;
-      safePrint("[AUTH] getUserDetails: cognitoId=$cognitoId");
+      safePrint("[AUTH] getUserDetails: Fetching profile for id=$cognitoId");
 
-      // --- Step 1: Try by Cognito ID ---
-      final byIdResult = await _getUserById(cognitoId);
-      if (byIdResult != null) {
-        safePrint("[AUTH] User found by ID ✓");
-        return byIdResult;
+      final user = await _getUserById(cognitoId);
+      
+      if (user != null) {
+         safePrint("[AUTH] Profile found ✓");
+      } else {
+         safePrint("[AUTH] Profile NOT found. User needs to complete registration.");
       }
-
-      // --- Step 2: Try by Phone Number ---
-      safePrint("[AUTH] User NOT found by ID. Searching by phone...");
-      final phone = await _getPhoneFromCognito();
-      if (phone == null) {
-        safePrint("[AUTH] Could not get phone from Cognito");
-        return null;
-      }
-
-      final byPhoneResult = await _getUserByPhone(phone);
-      if (byPhoneResult == null) {
-        safePrint("[AUTH] No user found by phone either. Truly new user.");
-        return null;
-      }
-
-      // --- Step 3: Found by phone but wrong ID. Migrate. ---
-      safePrint("[AUTH] Found user by phone (old id=${byPhoneResult.uid}). Migrating to id=$cognitoId...");
-
-      // Create new record with correct ID
-      await _createUserRecord(cognitoId, byPhoneResult);
-      // Delete old record
-      await _deleteUserRecord(byPhoneResult.uid);
-
-      safePrint("[AUTH] Migration complete ✓");
-
-      // Return user with correct ID
-      return UserModel(
-        uid: cognitoId,
-        phoneNumber: byPhoneResult.phoneNumber,
-        firstName: byPhoneResult.firstName,
-        lastName: byPhoneResult.lastName,
-        dateOfBirth: byPhoneResult.dateOfBirth,
-        gender: byPhoneResult.gender,
-        bloodGroup: byPhoneResult.bloodGroup,
-        profilePicUrl: byPhoneResult.profilePicUrl,
-      );
+      
+      return user;
     } catch (e) {
       safePrint("[AUTH] Error in getUserDetails: $e");
       return null;
     }
   }
 
-  /// Save user profile to DynamoDB. Always uses Cognito Sub as ID.
+  /// Save or Update user profile to DynamoDB.
+  /// Strictly links the record to the Cognito User ID.
   Future<void> saveUser(UserModel user) async {
     final authUser = await currentUser;
     if (authUser == null) throw Exception("No authenticated user");
 
     final String cognitoId = authUser.userId;
-    safePrint("[AUTH] saveUser: Using cognitoId=$cognitoId");
+    safePrint("[AUTH] saveUser: Saving profile for id=$cognitoId");
 
-    // Check if record already exists
+    // Ensure phoneNumber is never empty (DynamoDB rejects empty strings on index keys)
+    String phoneNumber = user.phoneNumber;
+    if (phoneNumber.isEmpty) {
+      safePrint("[AUTH] phoneNumber is empty, fetching from Cognito...");
+      phoneNumber = await _getPhoneFromCognito() ?? authUser.username;
+      safePrint("[AUTH] Resolved phoneNumber=$phoneNumber");
+    }
+
+    // Check if record already exists to determine Create vs Update
     final existing = await _getUserById(cognitoId);
 
     final String mutation;
@@ -128,7 +102,7 @@ class AuthService {
       variables: {
         'input': {
           'id': cognitoId,
-          'phoneNumber': user.phoneNumber,
+          'phoneNumber': phoneNumber,
           'firstName': user.firstName,
           'lastName': user.lastName,
           'dateOfBirth': user.dateOfBirth?.toIso8601String().split('T')[0],
@@ -140,9 +114,130 @@ class AuthService {
     );
 
     final response = await Amplify.API.query(request: request).response;
-    safePrint('[AUTH] saveUser response: ${response.data}');
     if (response.errors.isNotEmpty) {
       safePrint('[AUTH] saveUser errors: ${response.errors}');
+      throw Exception("Failed to save user: ${response.errors.first.message}");
+    }
+    safePrint('[AUTH] saveUser success');
+  }
+
+  // --- Emergency Contacts ---
+
+  Future<List<EmergencyContact>> getEmergencyContacts() async {
+    try {
+      final authUser = await currentUser;
+      if (authUser == null) return [];
+
+      final String userId = authUser.userId;
+      safePrint("[AUTH] Fetching contacts for userId=$userId");
+
+      final doc = '''query ListContacts(\$filter: ModelEmergencyContactFilterInput) {
+        listEmergencyContacts(filter: \$filter) {
+          items {
+            id userId name phoneNumber relationship
+          }
+        }
+      }''';
+
+      final request = GraphQLRequest<String>(
+        document: doc,
+        variables: {
+          'filter': {
+            'userId': {'eq': userId}
+          }
+        },
+      );
+      final response = await Amplify.API.query(request: request).response;
+
+      safePrint("[AUTH] getEmergencyContacts response: ${response.data}");
+      if (response.errors.isNotEmpty) {
+        safePrint("[AUTH] getEmergencyContacts errors: ${response.errors}");
+        return [];
+      }
+
+      if (response.data == null) return [];
+      final data = jsonDecode(response.data!);
+      final items = data['listEmergencyContacts']?['items'] as List?;
+
+      safePrint("[AUTH] Found ${items?.length ?? 0} contacts");
+
+      if (items == null) return [];
+
+      return items
+          .map((e) => EmergencyContact.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      safePrint("[AUTH] getEmergencyContacts error: $e");
+      return [];
+    }
+  }
+
+  Future<bool> addEmergencyContact(String name, String phone, String? relation) async {
+    try {
+      final authUser = await currentUser;
+      if (authUser == null) return false;
+
+      final String userId = authUser.userId;
+
+      // Check current count (limit to 5)
+      final currentContacts = await getEmergencyContacts();
+      if (currentContacts.length >= 5) {
+        safePrint("[AUTH] Contact limit reached.");
+        return false;
+      }
+
+      // Check for duplicates
+      final isDuplicate = currentContacts.any((c) => c.phoneNumber == phone);
+      if (isDuplicate) {
+        safePrint("[AUTH] Contact already exists.");
+        // Treat as success to avoid user frustration, maybe just return true
+        return true; 
+      }
+
+      final doc = '''mutation CreateContact(\$input: CreateEmergencyContactInput!) {
+        createEmergencyContact(input: \$input) { id }
+      }''';
+
+      final request = GraphQLRequest<String>(
+        document: doc,
+        variables: {
+          'input': {
+            'userId': userId, // Explicitly linking to user
+            'name': name,
+            'phoneNumber': phone,
+            'relationship': relation,
+          }
+        },
+      );
+      
+      final response = await Amplify.API.mutate(request: request).response;
+      if (response.errors.isNotEmpty) {
+        safePrint("[AUTH] addContact errors: ${response.errors}");
+        return false;
+      }
+      return true;
+    } catch (e) {
+      safePrint("[AUTH] addEmergencyContact error: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deleteEmergencyContact(String id) async {
+    try {
+      final doc = '''mutation DeleteContact(\$id: ID!) {
+        deleteEmergencyContact(input: { id: \$id }) { id }
+      }''';
+
+      final request = GraphQLRequest<String>(
+        document: doc,
+        variables: {'id': id},
+      );
+      
+      final response = await Amplify.API.mutate(request: request).response;
+      return response.errors.isEmpty;
+    } catch (e) {
+      safePrint("[AUTH] deleteEmergencyContact error: $e");
+      return false;
     }
   }
 
@@ -169,91 +264,6 @@ class AuthService {
     } catch (e) {
       safePrint("[AUTH] _getUserById error: $e");
       return null;
-    }
-  }
-
-  Future<UserModel?> _getUserByPhone(String phone) async {
-    try {
-      // Normalize: extract last 10 digits for broad matching
-      String digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
-      if (digits.length > 10) {
-        digits = digits.substring(digits.length - 10);
-      }
-
-      safePrint("[AUTH] Searching by phone exact='$phone' contains='$digits'");
-
-      final doc = '''query ListUsers(\$phone: String!, \$digits: String!) {
-        listUsers(filter: {
-          or: [
-            { phoneNumber: { eq: \$phone } },
-            { phoneNumber: { contains: \$digits } }
-          ]
-        }) {
-          items {
-            id phoneNumber firstName lastName dateOfBirth gender bloodGroup profilePicUrl
-          }
-        }
-      }''';
-
-      final request = GraphQLRequest<String>(
-        document: doc,
-        variables: {'phone': phone, 'digits': digits},
-      );
-      final response = await Amplify.API.query(request: request).response;
-
-      if (response.data == null) return null;
-      final data = jsonDecode(response.data!);
-      final items = data['listUsers']?['items'] as List?;
-
-      safePrint("[AUTH] listUsers returned ${items?.length ?? 0} results");
-
-      if (items == null || items.isEmpty) return null;
-
-      final userMap = items.first as Map<String, dynamic>;
-      userMap['uid'] = userMap['id'];
-      return UserModel.fromJson(userMap);
-    } catch (e) {
-      safePrint("[AUTH] _getUserByPhone error: $e");
-      return null;
-    }
-  }
-
-  Future<void> _createUserRecord(String id, UserModel user) async {
-    try {
-      final doc = '''mutation CreateUser(\$input: CreateUserInput!) {
-        createUser(input: \$input) { id }
-      }''';
-
-      final request = GraphQLRequest<String>(
-        document: doc,
-        variables: {
-          'input': {
-            'id': id,
-            'phoneNumber': user.phoneNumber,
-            'firstName': user.firstName,
-            'lastName': user.lastName,
-            'dateOfBirth': user.dateOfBirth?.toIso8601String().split('T')[0],
-            'gender': user.gender,
-            'bloodGroup': user.bloodGroup,
-            'profilePicUrl': user.profilePicUrl,
-          }
-        },
-      );
-      await Amplify.API.query(request: request).response;
-    } catch (e) {
-      safePrint("[AUTH] _createUserRecord error: $e");
-    }
-  }
-
-  Future<void> _deleteUserRecord(String id) async {
-    try {
-      final doc = '''mutation DeleteUser(\$id: ID!) {
-        deleteUser(input: { id: \$id }) { id }
-      }''';
-      final request = GraphQLRequest<String>(document: doc, variables: {'id': id});
-      await Amplify.API.query(request: request).response;
-    } catch (e) {
-      safePrint("[AUTH] _deleteUserRecord error: $e");
     }
   }
 }

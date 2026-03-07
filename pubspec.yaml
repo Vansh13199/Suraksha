@@ -9,7 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   # State Management
   provider: ^6.1.1
 
@@ -17,7 +16,7 @@ dependencies:
   amplify_flutter: ^1.6.0
   amplify_auth_cognito: ^1.6.0
   amplify_api: ^1.6.0
-
+  
   # Maps & Location
   google_maps_flutter: ^2.5.0
   geolocator: ^10.1.0
@@ -28,7 +27,8 @@ dependencies:
   permission_handler: ^11.1.0
 
   # Phone / External Intents
-  url_launcher: ^6.2.5   # ✅ ADDED (FIXES YOUR ERROR)
+  url_launcher: ^6.2.5
+  flutter_phone_direct_caller: ^2.1.1
 
   # UI/UX
   google_fonts: ^6.1.0
@@ -39,6 +39,11 @@ dependencies:
   shared_preferences: ^2.2.2
   uuid: ^4.2.1
   intl: ^0.19.0
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  flutter_background_service: ^5.1.0
+  flutter_local_notifications: ^20.1.0
+  flutter_ble_peripheral: ^2.1.0
 
 dev_dependencies:
   flutter_test:

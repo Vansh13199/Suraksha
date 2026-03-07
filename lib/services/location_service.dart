@@ -41,9 +41,9 @@ class LocationService {
       // await _location.enableBackgroundMode(enable: true); 
       
       await _location.changeSettings(
-        accuracy: LocationAccuracy.balanced, // Reduced from high for stability
+        accuracy: LocationAccuracy.balanced,
         interval: 5000,
-        distanceFilter: 10,
+        distanceFilter: 0, // Send updates even when stationary
       );
     } catch (e) {
       print("Start Tracking Error: $e");

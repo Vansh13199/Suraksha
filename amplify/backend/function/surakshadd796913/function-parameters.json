@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "auth": {
+      "suraksha5b7ee2495b7ee249": [
+        "create",
+        "read",
+        "update",
+        "delete"
+      ]
+    }
+  },
+  "lambdaLayers": []
+}

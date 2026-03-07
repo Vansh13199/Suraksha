@@ -1,0 +1,7 @@
+{
+    "AppSyncApiName": "suraksha",
+    "DynamoDBBillingMode": "PAY_PER_REQUEST",
+    "DynamoDBEnableServerSideEncryption": false,
+    "S3DeploymentBucket": "amplify-suraksha-suraksha-16995-deployment",
+    "S3DeploymentRootKey": "amplify-appsync-files/ef27c05e8b7ef087c18d4cc0b9d02e7e4ffcc5ea"
+}

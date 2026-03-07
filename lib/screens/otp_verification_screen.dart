@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/primary_button.dart';
 import 'user_details_screen.dart';
 import 'home_dashboard_screen.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -74,14 +75,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("OTP Resent Successfully!"),
-              backgroundColor: Colors.green,
+              backgroundColor: AppTheme.successGreen,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(auth.errorMessage ?? "Failed to resend OTP."),
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.alertRed,
             ),
           );
         }
@@ -127,7 +128,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(auth.errorMessage ?? "Invalid OTP. Please try again."),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.alertRed,
           ),
         );
       }
@@ -144,61 +145,97 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     final loading = context.watch<AuthProvider>().isLoading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Verify OTP")),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              const Text(
-                "Enter OTP",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
+      appBar: AppBar(title: const Text("Verification")),
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                       const SizedBox(height: 32),
+                       Container(
+                        height: 100,
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.mark_email_unread_outlined, size: 50, color: AppTheme.primaryBlue),
+                      ),
+                      const SizedBox(height: 32),
+                      Text(
+                        "Enter Verification Code",
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "We have sent a 6-digit code to your number",
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textGrey,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 48),
 
-              const SizedBox(height: 32),
+                      TextFormField(
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        validator: Validators.validateOtp,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
+                        decoration: InputDecoration(
+                          hintText: "000000",
+                          counterText: "",
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
 
-              TextFormField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                textAlign: TextAlign.center,
-                validator: Validators.validateOtp,
-                decoration: const InputDecoration(
-                  hintText: "Enter 6 digit OTP",
-                  counterText: "",
+                      const SizedBox(height: 32),
+
+                      // Resend Button with Timer
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("Didn't receive code? "),
+                          TextButton(
+                            onPressed: _isResendEnabled && !loading ? _resendOtp : null,
+                            child: Text(
+                              _isResendEnabled ? "Resend OTP" : "Resend in ${_start}s",
+                              style: TextStyle(
+                                color: _isResendEnabled ? Theme.of(context).primaryColor : Colors.grey,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const Spacer(),
+
+                      PrimaryButton(
+                        text: "Verify",
+                        isLoading: loading,
+                        onPressed: _verifyOtp,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // Resend Button with Timer
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Didn't receive code? "),
-                  TextButton(
-                    onPressed: _isResendEnabled && !loading ? _resendOtp : null,
-                    child: Text(
-                      _isResendEnabled ? "Resend OTP" : "Resend in ${_start}s",
-                      style: TextStyle(
-                        color: _isResendEnabled ? Theme.of(context).primaryColor : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const Spacer(),
-
-              PrimaryButton(
-                text: "Verify",
-                isLoading: loading,
-                onPressed: _verifyOtp,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
