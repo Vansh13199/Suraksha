@@ -1,5 +1,5 @@
 /* eslint-disable */
-// WARNING: DO NOT EDIT. This file is manually constructed from amplifyconfiguration.dart
+// AWS Amplify configuration for Suraksha Website
 
 const awsmobile = {
     "aws_project_region": "eu-west-1",

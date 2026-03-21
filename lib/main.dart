@@ -16,21 +16,30 @@ import 'services/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  try {
-    final auth = AmplifyAuthCognito();
-    final api = AmplifyAPI();
-    await Amplify.addPlugins([auth, api]);
-    await Amplify.configure(amplifyconfig);
-    safePrint('Amplify Configured Successfully');
-  } on Exception catch (e) {
-    safePrint('Error configuring Amplify: $e');
-  }
+
+  // Configure Amplify
+  await _configureAmplify();
 
   // Initialize background service
   await initializeBackgroundService();
 
   runApp(const SurakshaPlusApp());
+}
+
+Future<void> _configureAmplify() async {
+  try {
+    final authPlugin = AmplifyAuthCognito();
+    final apiPlugin = AmplifyAPI();
+
+    await Amplify.addPlugins([authPlugin, apiPlugin]);
+    await Amplify.configure(amplifyconfig);
+
+    safePrint('[Amplify] Configured successfully');
+  } on AmplifyAlreadyConfiguredException {
+    safePrint('[Amplify] Already configured — skipping');
+  } on Exception catch (e) {
+    safePrint('[Amplify] Configuration failed: $e');
+  }
 }
 
 class SurakshaPlusApp extends StatelessWidget {
