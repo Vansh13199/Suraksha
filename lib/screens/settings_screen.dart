@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/modes_provider.dart';
+import '../../providers/assistant_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'splash_screen.dart';
 import 'location_privacy_screen.dart';
+import 'emergency_chat_screen.dart';
 import 'esp32_gps_debug_screen.dart';
 
 import 'profile_screen.dart';
@@ -149,6 +151,80 @@ class SettingsScreen extends StatelessWidget {
                     ],
                   );
                 },
+              ),
+            ),
+            const SizedBox(height: 16),
+            ModernCard(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    child: Text(
+                      "AI Assistant Debug",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textDark),
+                    ),
+                  ),
+                  _buildSettingsTile(
+                    context,
+                    icon: Icons.chat_bubble_outline_rounded,
+                    title: "Open Emergency Chat",
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyChatScreen()));
+                    },
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1),
+                  ),
+                  _buildSettingsTile(
+                    context,
+                    icon: Icons.battery_alert_rounded,
+                    title: "Simulate Low Battery",
+                    isDestructive: true,
+                    onTap: () {
+                      Provider.of<AssistantProvider>(context, listen: false).triggerLowBatteryAlert(15);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Simulated 15% battery. Check AI Assistant on home screen.")),
+                      );
+                      Navigator.pop(context); // Go back to Home
+                    },
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1),
+                  ),
+                  _buildSettingsTile(
+                    context,
+                    icon: Icons.restore_rounded,
+                    title: "Restore Normal State",
+                    onTap: () {
+                      Provider.of<AssistantProvider>(context, listen: false).restoreNormal(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Restored AI Assistant to NORMAL.")),
+                      );
+                      Navigator.pop(context); // Go back to Home
+                    },
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1),
+                  ),
+                  _buildSettingsTile(
+                    context,
+                    icon: Icons.delete_outline_rounded,
+                    title: "Clear Chat History",
+                    isDestructive: true,
+                    onTap: () {
+                      Provider.of<AssistantProvider>(context, listen: false).clearHistory();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("AI Assistant history cleared.")),
+                      );
+                      Navigator.pop(context); // Go back to Home
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),

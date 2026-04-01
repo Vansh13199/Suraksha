@@ -1,0 +1,32 @@
+type User @model @auth(rules: [{ allow: owner }]) {
+  id: ID!
+  phoneNumber: String! @index(name: "byPhoneNumber", queryField: "userByPhoneNumber")
+  firstName: String
+  lastName: String
+  dateOfBirth: AWSDate
+  gender: String
+  bloodGroup: String
+  profilePicUrl: String
+  fcmTokens: [String]
+}
+
+type EmergencyContact @model @auth(rules: [{ allow: owner }]) {
+  id: ID!
+  userId: ID!
+  name: String!
+  phoneNumber: String!
+  relationship: String
+}
+
+type SOSSession @model @auth(rules: [
+  { allow: owner },
+  { allow: public, operations: [create, read, update, delete] }
+]) {
+  id: ID!
+  phoneNumber: String!
+  isActive: Boolean!
+  latitude: Float!
+  longitude: Float!
+  triggerType: String
+  authorizedViewers: [String]
+}

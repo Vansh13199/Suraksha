@@ -1,0 +1,44 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-suraksha-dev-ca6ae-authRole",
+      "UnauthRoleArn": "arn:aws:iam::813883654405:role/amplify-suraksha-dev-ca6ae-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::813883654405:role/amplify-suraksha-dev-ca6ae-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+      "UnauthRoleName": "amplify-suraksha-dev-ca6ae-unauthRole",
+      "StackName": "amplify-suraksha-dev-ca6ae",
+      "StackId": "arn:aws:cloudformation:ap-south-1:813883654405:stack/amplify-suraksha-dev-ca6ae/064a9001-279b-11f1-9292-0255f73bceed",
+      "AmplifyAppId": "djyety2i0px5e",
+      "AuthTriggerTemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/auth/auth-trigger-cloudformation-template.json",
+      "APIGatewayAuthURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/api/APIGatewayAuthStack.json"
+    },
+    "categories": {
+      "auth": {
+        "surakshab48b52dfb48b52df": {}
+      },
+      "function": {
+        "surakshab48b52dfb48b52dfCreateAuthChallenge": {
+          "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+          "s3Key": "amplify-builds/surakshab48b52dfb48b52dfCreateAuthChallenge-6f55614a443774686732-build.zip"
+        },
+        "surakshab48b52dfb48b52dfDefineAuthChallenge": {
+          "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+          "s3Key": "amplify-builds/surakshab48b52dfb48b52dfDefineAuthChallenge-3752794338494639686d-build.zip"
+        },
+        "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse": {
+          "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+          "s3Key": "amplify-builds/surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-724f484e315556556457-build.zip"
+        },
+        "suraksha0dd005c5": {
+          "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+          "s3Key": "amplify-builds/suraksha0dd005c5-44636e354b3231316e5a-build.zip"
+        }
+      },
+      "api": {
+        "sosapi": {},
+        "suraksha": {}
+      }
+    }
+  }
+}

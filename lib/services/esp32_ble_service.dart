@@ -129,8 +129,10 @@ class Esp32BleService {
                final String data = String.fromCharCodes(value);
                print("Received from ESP32: $data");
                
-               if (data.contains("SOS")) {
+               if (data.contains("SOS:START")) {
                  _sosTriggerController.add(true);
+               } else if (data.contains("SOS:STOP")) {
+                 _sosTriggerController.add(false);
                }
                
                if (data.contains("GPS_FIXED")) {

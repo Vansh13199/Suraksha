@@ -92,24 +92,6 @@ env/
 .venv/
 pip-log.txt
 
-#amplify-do-not-edit-begin
-amplify/\#current-cloud-backend
-amplify/.config/local-*
-amplify/logs
-amplify/mock-data
-amplify/mock-api-resources
-amplify/backend/amplify-meta.json
-amplify/backend/.temp
-awsconfiguration.json
-amplifyconfiguration.json
-amplifyconfiguration.dart
-amplify-build-config.json
-amplify-gradle-config.json
-amplifytools.xcconfig
-.secret-*
-**.sample
-.dart_tool/flutter_build/
-#amplify-do-not-edit-end
 
 # Terraform
 .terraform/
@@ -120,3 +102,43 @@ amplifytools.xcconfig
 
 # Azure Functions secrets
 **/local.settings.json
+
+#amplify-do-not-edit-begin
+amplify/\#current-cloud-backend
+amplify/.config/local-*
+amplify/logs
+amplify/mock-data
+amplify/mock-api-resources
+amplify/backend/amplify-meta.json
+amplify/backend/.temp
+build/
+dist/
+node_modules/
+aws-exports.js
+awsconfiguration.json
+amplifyconfiguration.json
+amplifyconfiguration.dart
+amplify-build-config.json
+amplify-gradle-config.json
+amplifytools.xcconfig
+.secret-*
+**.sample
+#amplify-do-not-edit-end
+
+# Temporary and sensitive files
+service-account.json
+*.json
+*.txt
+*.log
+*.png
+*.py
+!lib/**/*.dart
+!android/**/*.xml
+!ios/**/*.plist
+!amplify/**/*.json
+!amplify/**/*.yaml
+!amplify/**/*.yml
+!amplify/**/*.py
+!esp_final/**/*.ino
+!esp_final/**/*.cpp
+!esp_final/**/*.h

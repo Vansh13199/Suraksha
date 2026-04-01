@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "paths": {
+    "/sos": {
+      "name": "/sos",
+      "lambdaFunction": "suraksha0dd005c5",
+      "permissions": {
+        "setting": "open"
+      }
+    }
+  }
+}

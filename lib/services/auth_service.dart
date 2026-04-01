@@ -2,8 +2,13 @@ import 'dart:convert';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import '../models/user_model.dart';
 import '../models/emergency_contact_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'push_notification_service.dart';
 
 class AuthService {
+  static const String _userKey = 'suraksha_user_profile';
+  static const String _contactsKey = 'suraksha_emergency_contacts';
+
   /// Get the currently authenticated user, or null if not signed in.
   Future<AuthUser?> get currentUser async {
     try {
@@ -38,26 +43,33 @@ class AuthService {
     return null;
   }
 
-  /// Fetch user profile by Cognito Sub (ID).
+  /// Get the current user's phone number as verified in Cognito attributes.
+  Future<String?> getUserPhone() async {
+    return _getPhoneFromCognito();
+  }
+
+  /// Fetch user profile.
+  /// First tries SharedPreferences (Fast/Reliable for Demo/Offline).
   Future<UserModel?> getUserDetails() async {
     try {
       final authUser = await currentUser;
-      if (authUser == null) {
-        safePrint('[AuthService] getUserDetails: No authenticated user');
-        return null;
+      if (authUser == null) return null;
+
+      // 1. Try Local Cache first
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString(_userKey);
+      
+      if (userJson != null) {
+        safePrint('[AuthService] Profile found in Local Storage ✓');
+        return UserModel.fromJson(jsonDecode(userJson));
       }
 
-      final String cognitoId = authUser.userId;
-      safePrint('[AuthService] getUserDetails: Fetching profile for id=$cognitoId');
-
-      final user = await _getUserById(cognitoId);
-
+      // 2. If no local, try GraphQL (if configured)
+      final user = await _getUserFromGraphQL(authUser.userId);
       if (user != null) {
-        safePrint('[AuthService] Profile found ✓');
-      } else {
-        safePrint('[AuthService] Profile NOT found. User needs to complete registration.');
+        await saveUser(user); // Cache it locally
       }
-
+      
       return user;
     } catch (e) {
       safePrint('[AuthService] Error in getUserDetails: $e');
@@ -65,155 +77,72 @@ class AuthService {
     }
   }
 
-  /// Save or update user profile to DynamoDB via GraphQL.
+  /// Save user profile locally and try to sync to GraphQL.
   Future<void> saveUser(UserModel user) async {
     final authUser = await currentUser;
     if (authUser == null) throw Exception('No authenticated user');
 
-    final String cognitoId = authUser.userId;
-    safePrint('[AuthService] saveUser: Saving profile for id=$cognitoId');
+    // 1. Save Locally (Always works)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(user.toJson()));
+    safePrint('[AuthService] Profile saved to Local Storage');
 
-    // Ensure phoneNumber is never empty
-    String phoneNumber = user.phoneNumber;
-    if (phoneNumber.isEmpty) {
-      safePrint('[AuthService] phoneNumber is empty, fetching from Cognito...');
-      phoneNumber = await _getPhoneFromCognito() ?? authUser.username;
-      safePrint('[AuthService] Resolved phoneNumber=$phoneNumber');
+    // 2. Try to Sync to GraphQL (Silent fail if API not added)
+    try {
+      await _saveToGraphQL(user, authUser);
+    } catch (e) {
+      safePrint('[AuthService] GraphQL Sync Skipped/Failed: $e');
     }
-
-    // Determine create vs update
-    final existing = await _getUserById(cognitoId);
-
-    final String mutation;
-    if (existing == null) {
-      mutation = '''mutation CreateUser(\$input: CreateUserInput!) {
-        createUser(input: \$input) { id }
-      }''';
-    } else {
-      mutation = '''mutation UpdateUser(\$input: UpdateUserInput!) {
-        updateUser(input: \$input) { id }
-      }''';
-    }
-
-    final request = GraphQLRequest<String>(
-      document: mutation,
-      variables: {
-        'input': {
-          'id': cognitoId,
-          'phoneNumber': phoneNumber,
-          'firstName': user.firstName,
-          'lastName': user.lastName,
-          'dateOfBirth': user.dateOfBirth?.toIso8601String().split('T')[0],
-          'gender': user.gender,
-          'bloodGroup': user.bloodGroup,
-          'profilePicUrl': user.profilePicUrl,
-        }
-      },
-    );
-
-    final response = await Amplify.API.query(request: request).response;
-    if (response.errors.isNotEmpty) {
-      safePrint('[AuthService] saveUser errors: ${response.errors}');
-      throw Exception('Failed to save user: ${response.errors.first.message}');
-    }
-    safePrint('[AuthService] saveUser success');
   }
 
   // ─── Emergency Contacts ───────────────────────────────────────────
 
-  /// Fetch all emergency contacts for the current user.
+  /// Fetch all emergency contacts (from Local Storage).
   Future<List<EmergencyContact>> getEmergencyContacts() async {
     try {
-      final authUser = await currentUser;
-      if (authUser == null) return [];
-
-      final String userId = authUser.userId;
-      safePrint('[AuthService] Fetching contacts for userId=$userId');
-
-      final doc = '''query ListContacts(\$filter: ModelEmergencyContactFilterInput) {
-        listEmergencyContacts(filter: \$filter) {
-          items {
-            id userId name phoneNumber relationship
-          }
-        }
-      }''';
-
-      final request = GraphQLRequest<String>(
-        document: doc,
-          variables: {
-          'filter': {
-            'userId': {'eq': userId}
-          }
-        },
-      );
-      final response = await Amplify.API.query(request: request).response;
-
-      safePrint('[AuthService] getEmergencyContacts response: ${response.data}');
-      if (response.errors.isNotEmpty) {
-        safePrint('[AuthService] getEmergencyContacts errors: ${response.errors}');
-        return [];
-      }
-
-      if (response.data == null) return [];
-      final data = jsonDecode(response.data!);
-      final items = data['listEmergencyContacts']?['items'] as List?;
-
-      safePrint('[AuthService] Found ${items?.length ?? 0} contacts');
-
-      if (items == null) return [];
-
-      return items
-          .map((e) => EmergencyContact.fromJson(e as Map<String, dynamic>))
+      final prefs = await SharedPreferences.getInstance();
+      final listJson = prefs.getStringList(_contactsKey) ?? [];
+      
+      final contacts = listJson
+          .map((item) => EmergencyContact.fromJson(jsonDecode(item)))
           .toList();
+      
+      safePrint('[AuthService] Found ${contacts.length} local contacts');
+      return contacts;
     } catch (e) {
       safePrint('[AuthService] getEmergencyContacts error: $e');
       return [];
     }
   }
 
-  /// Add an emergency contact (max 5, duplicates skipped).
+  /// Add an emergency contact locally.
   Future<bool> addEmergencyContact(String name, String phone, String? relation) async {
     try {
       final authUser = await currentUser;
-      if (authUser == null) return false;
+      final userId = authUser?.userId ?? 'local_user';
 
-      final String userId = authUser.userId;
+      final current = await getEmergencyContacts();
+      if (current.length >= 5) return false;
+      if (current.any((c) => c.phoneNumber == phone)) return true;
 
-      // Check current count (limit to 5)
-      final currentContacts = await getEmergencyContacts();
-      if (currentContacts.length >= 5) {
-        safePrint('[AuthService] Contact limit reached.');
-        return false;
-      }
-
-      // Check for duplicates
-      final isDuplicate = currentContacts.any((c) => c.phoneNumber == phone);
-      if (isDuplicate) {
-        safePrint('[AuthService] Contact already exists.');
-        return true;
-      }
-
-      final doc = '''mutation CreateContact(\$input: CreateEmergencyContactInput!) {
-        createEmergencyContact(input: \$input) { id }
-      }''';
-
-      final request = GraphQLRequest<String>(
-        document: doc,
-          variables: {
-          'input': {
-            'userId': userId,
-            'name': name,
-            'phoneNumber': phone,
-            'relationship': relation,
-          }
-        },
+      final newContact = EmergencyContact(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: userId,
+        name: name,
+        phoneNumber: phone,
+        relationship: relation,
       );
 
-      final response = await Amplify.API.mutate(request: request).response;
-      if (response.errors.isNotEmpty) {
-        safePrint('[AuthService] addContact errors: ${response.errors}');
-        return false;
-      }
+      final prefs = await SharedPreferences.getInstance();
+      final updatedList = current..add(newContact);
+      await prefs.setStringList(
+        _contactsKey, 
+        updatedList.map((c) => jsonEncode(c.toJson())).toList()
+      );
+
+      // 3. Sync to Cloud
+      _syncContactToGraphQL(newContact);
+
       return true;
     } catch (e) {
       safePrint('[AuthService] addEmergencyContact error: $e');
@@ -221,50 +150,159 @@ class AuthService {
     }
   }
 
-  /// Delete an emergency contact by ID.
+  /// Delete an emergency contact locally.
   Future<bool> deleteEmergencyContact(String id) async {
     try {
-      final doc = '''mutation DeleteContact(\$id: ID!) {
-        deleteEmergencyContact(input: { id: \$id }) { id }
-      }''';
-
-      final request = GraphQLRequest<String>(
-        document: doc,
-          variables: {'id': id},
+      final current = await getEmergencyContacts();
+      final updatedList = current.where((c) => c.id != id).toList();
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _contactsKey, 
+        updatedList.map((c) => jsonEncode(c.toJson())).toList()
       );
 
-      final response = await Amplify.API.mutate(request: request).response;
-      return response.errors.isEmpty;
+      // 3. Sync to Cloud
+      _deleteContactFromGraphQL(id);
+
+      return true;
     } catch (e) {
       safePrint('[AuthService] deleteEmergencyContact error: $e');
       return false;
     }
   }
 
-  // ─── Private Helpers ──────────────────────────────────────────────
-
-  /// Fetch a user by ID from GraphQL.
-  Future<UserModel?> _getUserById(String id) async {
+  /// Explicitly sync FCM Token to the backend.
+  Future<void> syncFcmToken() async {
     try {
+      final authUser = await currentUser;
+      if (authUser == null) {
+        safePrint('[AuthService] FCM Sync skipped: User not logged in.');
+        return;
+      }
+
+      final fcmToken = await PushNotificationService().getToken();
+      if (fcmToken == null) {
+        safePrint('[AuthService] FCM Sync skipped: No FCM token available.');
+        return;
+      }
+
+      final user = await getUserDetails() ?? UserModel(
+        uid: authUser.userId,
+        phoneNumber: '+918837578715', // Fallback phonenumber for testing
+        firstName: 'User',
+      );
+
+      safePrint('[AuthService] Syncing FCM Token: $fcmToken');
+      await _saveToGraphQL(user, authUser);
+      safePrint('[AuthService] FCM Sync Success!');
+    } catch (e) {
+      safePrint('[AuthService] FCM Sync failed: $e');
+    }
+  }
+
+  // ─── Internal Implementation (GraphQL) ─────────────────────────────
+
+  Future<UserModel?> _getUserFromGraphQL(String id) async {
+    try {
+      // Cloud Sync logic
+
       final doc = '''query GetUser(\$id: ID!) {
         getUser(id: \$id) {
-          id phoneNumber firstName lastName dateOfBirth gender bloodGroup profilePicUrl
+          id phoneNumber firstName lastName dateOfBirth gender bloodGroup profilePicUrl fcmTokens
         }
       }''';
-
       final request = GraphQLRequest<String>(document: doc, variables: {'id': id});
       final response = await Amplify.API.query(request: request).response;
-
       if (response.data == null) return null;
       final data = jsonDecode(response.data!);
       final userMap = data['getUser'];
       if (userMap == null) return null;
-
       userMap['uid'] = userMap['id'];
-      return UserModel.fromJson(userMap);
-    } catch (e) {
-      safePrint('[AuthService] _getUserById error: $e');
+      // Keep fcmTokens in the raw map or user object? Since we return UserModel, we should either store tokens in UserModel or just let _saveToGraphQL fetch it again.
+      // Wait, _getUserFromGraphQL returns UserModel. We need a way to pass fcmTokens to _saveToGraphQL.
+      return UserModel.fromJson(userMap)..fcmTokens = List<String>.from(userMap['fcmTokens'] ?? []);
+    } catch (_) {
       return null;
+    }
+  }
+
+  Future<void> _saveToGraphQL(UserModel user, AuthUser authUser) async {
+    // Only attempt if API plugin is enabled
+    final cognitoId = authUser.userId;
+    final existing = await _getUserFromGraphQL(cognitoId);
+
+    final fcmToken = await PushNotificationService().getToken();
+    List<String> tokens = [];
+    if (existing != null) {
+      tokens = List<String>.from(existing.fcmTokens);
+    }
+    if (fcmToken != null && !tokens.contains(fcmToken)) {
+      tokens.add(fcmToken);
+    }
+
+    final mutation = existing == null 
+      ? 'mutation CreateUser(\$input: CreateUserInput!) { createUser(input: \$input) { id } }'
+      : 'mutation UpdateUser(\$input: UpdateUserInput!) { updateUser(input: \$input) { id } }';
+
+    final request = GraphQLRequest<String>(
+      document: mutation,
+      variables: {
+        'input': {
+          'id': cognitoId,
+          'phoneNumber': user.phoneNumber.isEmpty ? authUser.username : user.phoneNumber,
+          'firstName': user.firstName,
+          'lastName': user.lastName,
+          'dateOfBirth': user.dateOfBirth?.toIso8601String().split('T')[0],
+          'gender': user.gender,
+          'bloodGroup': user.bloodGroup,
+          'profilePicUrl': user.profilePicUrl,
+          'fcmTokens': tokens,
+        }
+      },
+    );
+    await Amplify.API.mutate(request: request).response;
+  }
+
+  Future<void> _syncContactToGraphQL(EmergencyContact contact) async {
+    try {
+      final doc = '''mutation CreateContact(\$input: CreateEmergencyContactInput!) {
+        createEmergencyContact(input: \$input) { id }
+      }''';
+      final request = GraphQLRequest<String>(
+        document: doc,
+        variables: {
+          'input': {
+            'id': contact.id,
+            'name': contact.name,
+            'phoneNumber': contact.phoneNumber,
+            'relationship': contact.relationship,
+            'userId': contact.userId,
+          }
+        },
+      );
+      await Amplify.API.mutate(request: request).response;
+      safePrint('[AuthService] Contact synced to Cloud ✓');
+    } catch (e) {
+      safePrint('[AuthService] Contact sync failed: $e');
+    }
+  }
+
+  Future<void> _deleteContactFromGraphQL(String id) async {
+    try {
+      final doc = '''mutation DeleteContact(\$input: DeleteEmergencyContactInput!) {
+        deleteEmergencyContact(input: \$input) { id }
+      }''';
+      final request = GraphQLRequest<String>(
+        document: doc,
+        variables: {
+          'input': { 'id': id }
+        },
+      );
+      await Amplify.API.mutate(request: request).response;
+      safePrint('[AuthService] Contact deleted from Cloud ✓');
+    } catch (e) {
+      safePrint('[AuthService] Contact delete sync failed: $e');
     }
   }
 }

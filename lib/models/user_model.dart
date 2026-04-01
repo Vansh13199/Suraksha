@@ -7,6 +7,7 @@ class UserModel {
   final String? gender;
   final String? bloodGroup;
   final String? profilePicUrl;
+  List<String> fcmTokens = [];
 
   UserModel({
     required this.uid,
@@ -17,6 +18,7 @@ class UserModel {
     this.gender,
     this.bloodGroup,
     this.profilePicUrl,
+    this.fcmTokens = const [],
   });
 
   String get fullName => "${firstName ?? ''} ${lastName ?? ''}".trim();

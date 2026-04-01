@@ -1,0 +1,16 @@
+{
+  "trigger": true,
+  "modules": [
+    "custom"
+  ],
+  "parentResource": "surakshab48b52dfb48b52df",
+  "functionName": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse",
+  "resourceName": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse",
+  "parentStack": "auth",
+  "triggerEnvs": "[]",
+  "triggerDir": "C:\\snapshot\\amplify-cli\\build\\node_modules\\@aws-amplify\\amplify-category-auth\\provider-utils\\awscloudformation\\triggers\\VerifyAuthChallengeResponse",
+  "triggerTemplate": "VerifyAuthChallengeResponse.json.ejs",
+  "triggerEventPath": "VerifyAuthChallengeResponse.event.json",
+  "roleName": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse",
+  "skipEdit": true
+}

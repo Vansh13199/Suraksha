@@ -20,15 +20,16 @@ class SosProvider extends ChangeNotifier {
   List<EmergencyContact> _emergencyContacts = [];
 
   bool get isSosActive => _emergencyService.isSosActive;
+  String? get currentSessionId => _emergencyService.currentSosSessionId;
   List<EmergencyContact> get emergencyContacts => _emergencyContacts;
 
   SosProvider() {
     _espService.init(); // Initialize SOS Service
     _listenToEspTrigger();
-    _loadContacts();
+    refreshContacts();
   }
 
-  Future<void> _loadContacts() async {
+  Future<void> refreshContacts() async {
     _emergencyContacts = await _authService.getEmergencyContacts();
     notifyListeners();
   }
@@ -37,11 +38,13 @@ class SosProvider extends ChangeNotifier {
     _espService.sosTriggerStream.listen((triggered) {
       if (triggered) {
         handleEspTriggeredSos();
+      } else {
+        deactivateSos();
       }
     });
   }
 
-  Future<void> handleAppTriggeredSos() async {
+  Future<void> handleAppTriggeredSos({bool isLowBattery = false}) async {
     print("HANDLING APP TRIGGERED SOS...");
     
     // NEW: Send GPS to SOS ESP if connected
@@ -58,7 +61,7 @@ class SosProvider extends ChangeNotifier {
       }
     }
 
-    await _executeSosLogic(SosTriggerType.APP_TRIGGERED);
+    await _executeSosLogic(SosTriggerType.APP_TRIGGERED, isLowBattery: isLowBattery);
   }
 
   Future<void> handleEspTriggeredSos() async {
@@ -66,7 +69,7 @@ class SosProvider extends ChangeNotifier {
     await _executeSosLogic(SosTriggerType.ESP_TRIGGERED);
   }
 
-  Future<void> _executeSosLogic(SosTriggerType triggerType) async {
+  Future<void> _executeSosLogic(SosTriggerType triggerType, {bool isLowBattery = false}) async {
     // 1. Gather State
     bool espConnected = _espService.isConnected;
     bool hasInternet = await _connectivityService.hasInternetConnection();
@@ -92,9 +95,12 @@ class SosProvider extends ChangeNotifier {
       return;
     }
 
-    // 4. Ensure contacts
+    // 4. ALWAYS fetch fresh contacts before triggering to prevent sending to deleted users
+    print("[SosProvider] Refreshing contacts list before SOS dispatch...");
+    await refreshContacts();
+    
     if (_emergencyContacts.isEmpty) {
-      await _loadContacts();
+      print("[SosProvider] WARNING: No emergency contacts found. SOS will proceed but notifications may fail.");
     }
     
     // Map contacts
@@ -120,7 +126,7 @@ class SosProvider extends ChangeNotifier {
           print("Using Phone GPS for SOS");
        }
        
-       await _emergencyService.activateSos(legacyContacts, latOverride: latOverride, lonOverride: lonOverride);
+       await _emergencyService.activateSos(legacyContacts, latOverride: latOverride, lonOverride: lonOverride, isLowBattery: isLowBattery);
        
     } else if (decision.sender == SosSender.ESP_ESIM) {
        // Using ESP WiFi

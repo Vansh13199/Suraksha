@@ -124,9 +124,10 @@ class AuthProvider extends ChangeNotifier {
 
       final result = await Amplify.Auth.signIn(
         username: phoneNumber,
+        password: 'SurakshaPassword@123',
         options: SignInOptions(
           pluginOptions: const CognitoSignInPluginOptions(
-            authFlowType: AuthenticationFlowType.customAuthWithoutSrp,
+            authFlowType: AuthenticationFlowType.customAuthWithSrp,
           ),
         ),
       );
@@ -188,7 +189,7 @@ class AuthProvider extends ChangeNotifier {
       final body = {
         'action': 'signup',
         'phoneNumber': phoneNumber,
-        'password': _generateRandomPassword(),
+        'password': 'SurakshaPassword@123',
       };
 
       final response = await Amplify.API.post(
@@ -209,9 +210,10 @@ class AuthProvider extends ChangeNotifier {
       // Now initiate sign-in for OTP (user is CONFIRMED by lambda)
       final result = await Amplify.Auth.signIn(
         username: phoneNumber,
+        password: 'SurakshaPassword@123',
         options: SignInOptions(
           pluginOptions: const CognitoSignInPluginOptions(
-            authFlowType: AuthenticationFlowType.customAuthWithoutSrp,
+            authFlowType: AuthenticationFlowType.customAuthWithSrp,
           ),
         ),
       );
@@ -266,7 +268,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final result = await Amplify.Auth.confirmSignIn(
-        confirmationValue: otp,
+        confirmationValue: otp.trim(),
       );
 
       safePrint('[AuthProvider] VerifyOTP result: ${result.isSignedIn}');

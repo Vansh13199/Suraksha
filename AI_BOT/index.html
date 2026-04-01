@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy-Aware Emergency Assistant</title>
+    <link rel="stylesheet" href="styles.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Floating Assistant (Lena Style) -->
+    <div id="ai-assistant-container" class="ai-assistant-container">
+        <div class="assistant-tooltip" id="assistant-tooltip">
+            Ask me for help!<br>
+            I'm your Suraksha+ guide.
+        </div>
+        <div id="ai-fab" class="ai-fab-pill">
+            <span class="assistant-label">Suraksha+ Assistant</span>
+            <div class="assistant-avatar">
+                <img src="assistant_avatar.png" alt="Assistant Avatar" class="avatar-img">
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Window UI -->
+    <div id="chat-window" class="chat-window hidden">
+            <div class="chat-header">
+                <div class="header-info">
+                    <div class="assistant-avatar small">
+                        <img src="assistant_avatar.png" alt="Avatar" class="avatar-img">
+                    </div>
+                    <div class="header-text">
+                        <span class="assistant-name">Suraksha+ Assistant</span>
+                    </div>
+                </div>
+                <button class="close-btn" id="close-chat">&times;</button>
+            </div>
+        
+        <div id="chat-messages" class="chat-messages">
+            <div class="message ai-message">
+                <p>Hello! I am your friendly Suraksha+ assistant. How can I help you today?</p>
+                <span class="timestamp" id="init-time"></span>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
+            <button id="send-btn" class="icon-btn send-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Simulation Controls (for Demo) -->
+    <div class="demo-controls">
+        <h3>Simulation Tools</h3>
+        <button id="trigger-battery" class="demo-btn danger">Simulate Low Battery (Trigger ALERT)</button>
+        <button id="trigger-normal" class="demo-btn success">Restore NORMAL State</button>
+    </div>
+
+    <!-- Emergency Contact Chat Window (Left Side) -->
+    <div id="contact-chat" class="contact-chat-window hidden">
+        <div class="contact-chat-header">
+            <h3>📢 Emergency Contacts</h3>
+            <span class="contact-count">3 Contacts Connected</span>
+        </div>
+        <div id="contact-messages" class="contact-messages">
+            <div class="message system-message">
+                <p>Waiting for system alerts...</p>
+            </div>
+        </div>
+        <div class="contact-input-area">
+            <input type="text" id="contact-input" placeholder="Emergency contact reply..." autocomplete="off">
+            <button id="contact-send-btn" class="contact-send-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modular Script Loading -->
+    <script src="ai_engine.js"></script>
+    <script src="script.js?v=6"></script>
+</body>
+</html>

@@ -19,9 +19,10 @@ class EmergencyService {
   final String _testPhoneNumber = '+919999999999';
 
   bool get isSosActive => _isSosActive;
+  String? get currentSosSessionId => _currentSosSessionId;
 
   /// Activate SOS: create session, start tracking, send SMS, call emergency.
-  Future<void> activateSos(List<ContactModel> contacts, {double? latOverride, double? lonOverride}) async {
+  Future<void> activateSos(List<ContactModel> contacts, {double? latOverride, double? lonOverride, bool isLowBattery = false}) async {
     try {
       _isSosActive = true;
 
@@ -45,7 +46,7 @@ class EmergencyService {
       }
 
       // 2. Create Backend SOS Session
-      await _createSosSession(location);
+      await _createSosSession(location, contacts, isLowBattery);
 
       // 3. Start Live Location Updates
       _startLiveLocationUpdates();
@@ -62,20 +63,22 @@ class EmergencyService {
       safePrint('[SOS] SENDING TO: ${contacts.map((c) => c.phoneNumber).join(", ")}');
       safePrint('[SOS] MESSAGE: $message');
 
-      // 5. Send SMS via Backend API
-      if (contacts.isNotEmpty) {
+      // 5. Send SMS via Backend API (Skip for low battery, handled via Push)
+      if (contacts.isNotEmpty && !isLowBattery) {
         await _sendSmsBackend(contacts, message);
       }
 
       // 6. Initiate Phone Call (Direct to 112)
-      await _callEmergencyDirectly();
+      if (!isLowBattery) {
+        await _callEmergencyDirectly();
+      }
     } catch (e) {
       safePrint('[SOS] CRITICAL ERROR: $e');
     }
   }
 
   /// Create SOS session in GraphQL backend.
-  Future<void> _createSosSession(LocationData? location) async {
+  Future<void> _createSosSession(LocationData? location, List<ContactModel> contacts, bool isLowBattery) async {
     try {
       String userPhone = _testPhoneNumber;
       try {
@@ -109,6 +112,8 @@ class EmergencyService {
             'isActive': true,
             'latitude': location?.latitude ?? 0.0,
             'longitude': location?.longitude ?? 0.0,
+            'triggerType': isLowBattery ? 'LOW_BATTERY' : 'MANUAL',
+            'authorizedViewers': contacts.map((c) => c.phoneNumber).toList(),
           }
         },
       );

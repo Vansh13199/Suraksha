@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/emergency_contact_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/sos_provider.dart';
 import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/modern_card.dart';
@@ -101,6 +102,10 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
 
                 if (success) {
                    await _loadContacts();
+                   // Sync the SOS provider so the background logic has the fresh list
+                   if (mounted) {
+                     Provider.of<SosProvider>(context, listen: false).refreshContacts();
+                   }
                    messenger.showSnackBar(
                      const SnackBar(content: Text("Contact Added"), backgroundColor: AppTheme.successGreen),
                    );
@@ -140,6 +145,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
     if (success) {
       await _loadContacts();
       if (mounted) {
+        // Sync the SOS provider so the background logic has the fresh list
+        Provider.of<SosProvider>(context, listen: false).refreshContacts();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Contact Deleted"), backgroundColor: Colors.orange),
         );

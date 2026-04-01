@@ -1,0 +1,254 @@
+{
+  "providers": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-suraksha-dev-ca6ae-authRole",
+      "UnauthRoleArn": "arn:aws:iam::813883654405:role/amplify-suraksha-dev-ca6ae-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::813883654405:role/amplify-suraksha-dev-ca6ae-authRole",
+      "Region": "ap-south-1",
+      "DeploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+      "UnauthRoleName": "amplify-suraksha-dev-ca6ae-unauthRole",
+      "StackName": "amplify-suraksha-dev-ca6ae",
+      "StackId": "arn:aws:cloudformation:ap-south-1:813883654405:stack/amplify-suraksha-dev-ca6ae/064a9001-279b-11f1-9292-0255f73bceed",
+      "AmplifyAppId": "djyety2i0px5e",
+      "AuthTriggerTemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/auth/auth-trigger-cloudformation-template.json"
+    }
+  },
+  "function": {
+    "surakshab48b52dfb48b52dfCreateAuthChallenge": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda",
+      "lastBuildTimeStamp": "2026-03-31T19:33:59.541Z",
+      "lastBuildType": "PROD",
+      "lastPackageTimeStamp": "2026-03-31T19:34:22.883Z",
+      "distZipFilename": "surakshab48b52dfb48b52dfCreateAuthChallenge-6f55614a443774686732-build.zip",
+      "s3Bucket": {
+        "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+        "s3Key": "amplify-builds/surakshab48b52dfb48b52dfCreateAuthChallenge-6f55614a443774686732-build.zip"
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/function/surakshab48b52dfb48b52dfCreateAuthChallenge-cloudformation-template.json",
+        "logicalId": "functionsurakshab48b52dfb48b52dfCreateAuthChallenge"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.768Z",
+      "output": {
+        "LambdaExecutionRoleArn": "arn:aws:iam::813883654405:role/surakshab48b52dfb48b52dfCreateAuthChallenge-dev",
+        "Region": "ap-south-1",
+        "Arn": "arn:aws:lambda:ap-south-1:813883654405:function:surakshab48b52dfb48b52dfCreateAuthChallenge-dev",
+        "Name": "surakshab48b52dfb48b52dfCreateAuthChallenge-dev",
+        "LambdaExecutionRole": "surakshab48b52dfb48b52dfCreateAuthChallenge-dev"
+      },
+      "lastPushDirHash": "PUxa67KQRCM2ZCuKcwcT/YL99o4="
+    },
+    "surakshab48b52dfb48b52dfDefineAuthChallenge": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda",
+      "lastBuildTimeStamp": "2026-03-24T18:12:02.568Z",
+      "lastBuildType": "PROD",
+      "lastPackageTimeStamp": "2026-03-24T18:12:02.595Z",
+      "distZipFilename": "surakshab48b52dfb48b52dfDefineAuthChallenge-3752794338494639686d-build.zip",
+      "s3Bucket": {
+        "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+        "s3Key": "amplify-builds/surakshab48b52dfb48b52dfDefineAuthChallenge-3752794338494639686d-build.zip"
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/function/surakshab48b52dfb48b52dfDefineAuthChallenge-cloudformation-template.json",
+        "logicalId": "functionsurakshab48b52dfb48b52dfDefineAuthChallenge"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.770Z",
+      "output": {
+        "LambdaExecutionRoleArn": "arn:aws:iam::813883654405:role/surakshab48b52dfb48b52dfDefineAuthChallenge-dev",
+        "Region": "ap-south-1",
+        "Arn": "arn:aws:lambda:ap-south-1:813883654405:function:surakshab48b52dfb48b52dfDefineAuthChallenge-dev",
+        "Name": "surakshab48b52dfb48b52dfDefineAuthChallenge-dev",
+        "LambdaExecutionRole": "surakshab48b52dfb48b52dfDefineAuthChallenge-dev"
+      },
+      "lastPushDirHash": "Oao+d1LlMDVBQl9NlxS8wq8s4/k="
+    },
+    "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda",
+      "lastBuildTimeStamp": "2026-03-24T18:30:37.903Z",
+      "lastBuildType": "PROD",
+      "lastPackageTimeStamp": "2026-03-24T18:30:38.270Z",
+      "distZipFilename": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-724f484e315556556457-build.zip",
+      "s3Bucket": {
+        "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+        "s3Key": "amplify-builds/surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-724f484e315556556457-build.zip"
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/function/surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-cloudformation-template.json",
+        "logicalId": "functionsurakshab48b52dfb48b52dfVerifyAuthChallengeResponse"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.786Z",
+      "output": {
+        "LambdaExecutionRoleArn": "arn:aws:iam::813883654405:role/surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-dev",
+        "Region": "ap-south-1",
+        "Arn": "arn:aws:lambda:ap-south-1:813883654405:function:surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-dev",
+        "Name": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-dev",
+        "LambdaExecutionRole": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse-dev"
+      },
+      "lastPushDirHash": "1gfSt1bmLFADssjiZVJl2ZTfBLM="
+    },
+    "suraksha0dd005c5": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda",
+      "lastBuildTimeStamp": "2026-03-31T19:34:28.201Z",
+      "lastBuildType": "PROD",
+      "lastPackageTimeStamp": "2026-03-31T19:34:56.825Z",
+      "distZipFilename": "suraksha0dd005c5-44636e354b3231316e5a-build.zip",
+      "s3Bucket": {
+        "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
+        "s3Key": "amplify-builds/suraksha0dd005c5-44636e354b3231316e5a-build.zip"
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/function/suraksha0dd005c5-cloudformation-template.json",
+        "logicalId": "functionsuraksha0dd005c5"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.803Z",
+      "output": {
+        "LambdaExecutionRoleArn": "arn:aws:iam::813883654405:role/surakshaLambdaRole70778e68-dev",
+        "Region": "ap-south-1",
+        "Arn": "arn:aws:lambda:ap-south-1:813883654405:function:suraksha0dd005c5-dev",
+        "Name": "suraksha0dd005c5-dev",
+        "LambdaExecutionRole": "surakshaLambdaRole70778e68-dev"
+      },
+      "lastPushDirHash": "fTVPCtfVecO0wkg9X/EDIm9PnZQ="
+    }
+  },
+  "auth": {
+    "surakshab48b52dfb48b52df": {
+      "service": "Cognito",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [
+        {
+          "category": "function",
+          "resourceName": "surakshab48b52dfb48b52dfCreateAuthChallenge",
+          "triggerProvider": "Cognito",
+          "attributes": [
+            "Arn",
+            "Name"
+          ]
+        },
+        {
+          "category": "function",
+          "resourceName": "surakshab48b52dfb48b52dfDefineAuthChallenge",
+          "triggerProvider": "Cognito",
+          "attributes": [
+            "Arn",
+            "Name"
+          ]
+        },
+        {
+          "category": "function",
+          "resourceName": "surakshab48b52dfb48b52dfVerifyAuthChallengeResponse",
+          "triggerProvider": "Cognito",
+          "attributes": [
+            "Arn",
+            "Name"
+          ]
+        }
+      ],
+      "customAuth": true,
+      "frontendAuthConfig": {
+        "socialProviders": [],
+        "usernameAttributes": [
+          "PHONE_NUMBER"
+        ],
+        "signupAttributes": [
+          "PHONE_NUMBER"
+        ],
+        "passwordProtectionSettings": {
+          "passwordPolicyMinLength": 8,
+          "passwordPolicyCharacters": []
+        },
+        "mfaConfiguration": "OFF",
+        "mfaTypes": [
+          "SMS"
+        ],
+        "verificationMechanisms": [
+          "PHONE_NUMBER"
+        ]
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/auth/surakshab48b52dfb48b52df-cloudformation-template.json",
+        "logicalId": "authsurakshab48b52dfb48b52df"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.819Z",
+      "output": {
+        "CreatedSNSRole": "arn:aws:iam::813883654405:role/snsb48b52dfca6ae-dev",
+        "UserPoolId": "ap-south-1_iFJ06Qql9",
+        "AppClientIDWeb": "4p4gsfeoj8clgc1ffm37ffcr0i",
+        "AppClientID": "3qqf9oks1m83c0vbhk7mqlvlqr",
+        "IdentityPoolId": "ap-south-1:c28fd02c-5ca2-4ef4-9789-1f9a27abcba0",
+        "UserPoolArn": "arn:aws:cognito-idp:ap-south-1:813883654405:userpool/ap-south-1_iFJ06Qql9",
+        "IdentityPoolName": "surakshab48b52df_identitypool_b48b52df__dev",
+        "UserPoolName": "surakshab48b52df_userpool_b48b52df"
+      },
+      "lastPushDirHash": "WsJewMgUVa61ZUGuKEeiTQUvhpQ="
+    }
+  },
+  "api": {
+    "sosapi": {
+      "service": "API Gateway",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [
+        {
+          "category": "function",
+          "resourceName": "suraksha0dd005c5",
+          "attributes": [
+            "Name",
+            "Arn"
+          ]
+        }
+      ],
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/api/sosapi-cloudformation-template.json",
+        "logicalId": "apisosapi"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.836Z",
+      "output": {
+        "ApiName": "sosapi",
+        "RootUrl": "https://es0tbyl9y0.execute-api.ap-south-1.amazonaws.com/dev",
+        "ApiId": "es0tbyl9y0"
+      },
+      "lastPushDirHash": "ix4+G7So9z8ML35e45mf79XBlwc="
+    },
+    "suraksha": {
+      "service": "AppSync",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [
+        {
+          "category": "auth",
+          "resourceName": "surakshab48b52dfb48b52df",
+          "attributes": [
+            "UserPoolId"
+          ]
+        }
+      ],
+      "output": {
+        "authConfig": {
+          "defaultAuthentication": {
+            "authenticationType": "AMAZON_COGNITO_USER_POOLS",
+            "userPoolConfig": {
+              "userPoolId": "authsurakshab48b52dfb48b52df"
+            }
+          },
+          "additionalAuthenticationProviders": []
+        },
+        "GraphQLAPIIdOutput": "vkqykgibazglvo3pdfkgqgetfu",
+        "GraphQLAPIEndpointOutput": "https://jmvhy4clwzannjvummuqel4yy4.appsync-api.ap-south-1.amazonaws.com/graphql",
+        "GraphQLAPIKeyOutput": "da2-x244aarcpzbw3bdn4zvnm4jqfu"
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-suraksha-dev-ca6ae-deployment/amplify-cfn-templates/api/cloudformation-template.json",
+        "logicalId": "apisuraksha"
+      },
+      "lastPushTimeStamp": "2026-03-31T19:52:55.852Z",
+      "lastPushDirHash": "+T5jtQ44aXpD4XWwdfMxAk83tLU="
+    }
+  }
+}

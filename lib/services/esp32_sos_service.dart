@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../core/constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_service.dart';
 
 class Esp32SosService {
   // Singleton pattern
@@ -13,6 +14,8 @@ class Esp32SosService {
   }
 
   Esp32SosService._internal();
+
+  final AuthService _authService = AuthService();
 
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _rxCharacteristic; // ESP32 TX -> App RX (Notify)
@@ -114,6 +117,14 @@ class Esp32SosService {
       
       // Discover services AFTER connecting
       await _discoverServices(device);
+
+      // --- SYNC IDENTITY ON CONNECT ---
+      await Future.delayed(const Duration(seconds: 1));
+      final phone = await _authService.getUserPhone();
+      if (phone != null) {
+        print("[SOS Service] Syncing user identity: $phone");
+        await sendData("SET_PHONE:$phone");
+      }
       
     } catch (e) {
       print("[SOS Service] Connection Error: $e");
@@ -142,10 +153,13 @@ class Esp32SosService {
                final String data = String.fromCharCodes(value);
                print("[SOS Service] <<< Rx from ESP: '$data'");
                
-               // SOS trigger
-               if (data.contains("SOS")) {
-                 print("[SOS Service] !!! SOS TRIGGERED");
+               // SOS trigger — must match exactly to avoid SOS:STOP re-triggering
+               if (data.trim() == "SOS:START") {
+                 print("[SOS Service] !!! SOS TRIGGERED from ESP32");
                  _sosTriggerController.add(true);
+               } else if (data.trim() == "SOS:STOP") {
+                 print("[SOS Service] !!! SOS STOP received from ESP32");
+                 _sosTriggerController.add(false);
                }
 
                // Activity Mode signals

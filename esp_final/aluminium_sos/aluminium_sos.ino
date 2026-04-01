@@ -33,8 +33,8 @@ String latestLon = "0.000000";
 
 // ---------------- AWS AMPLIFY API ----------------
 // Replace with the genuine API key from implementation_plan.md if different
-const char* appsyncUrl = "https://lmusrzicejbirlza2h6mgzehhe.appsync-api.eu-west-1.amazonaws.com/graphql";
-const char* apiKey = "da2-5xdgi45ztzfzvfwecopgsxq37u";
+const char* appsyncUrl = "https://jmvhy4clwzannjvummuqel4yy4.appsync-api.ap-south-1.amazonaws.com/graphql";
+const char* apiKey = "da2-x244aarcpzbw3bdn4zvnm4jqfu";
 
 // Anti-spam timer for SOS
 unsigned long lastSosTrigger = 0;
