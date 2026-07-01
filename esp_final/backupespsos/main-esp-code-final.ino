@@ -131,30 +131,17 @@ unsigned long activityDurationSeconds = 0;
 #define VIBRATION_PIN 13
 
 void vibrateContinuous(unsigned long durationMs) {
-  unsigned long start = millis();
   digitalWrite(VIBRATION_PIN, HIGH);
-  while(millis() - start < durationMs) {
-    sensor.check();
-    while(sensor.available()) sensor.nextSample();
-    delay(10);
-  }
+  delay(durationMs);
   digitalWrite(VIBRATION_PIN, LOW);
 }
 
 void vibratePulse(int times, int onMs, int offMs) {
   for (int i = 0; i < times; i++) {
-    unsigned long start = millis();
     digitalWrite(VIBRATION_PIN, HIGH);
-    while(millis() - start < onMs) {
-      sensor.check(); while(sensor.available()) sensor.nextSample(); delay(10);
-    }
+    delay(onMs);
     digitalWrite(VIBRATION_PIN, LOW);
-    if (i < times - 1) {
-      start = millis();
-      while(millis() - start < offMs) {
-        sensor.check(); while(sensor.available()) sensor.nextSample(); delay(10);
-      }
-    }
+    if (i < times - 1) delay(offMs);
   }
 }
 
@@ -404,14 +391,6 @@ static volatile int pendingTapAction = 0;
 static volatile bool pendingStopAction = false;
 
 // FreeRTOS Task for Touch (Core 0)
-void taskTouchSense(void* parameter) {
-  while (true) {
-    int raw = touchRead(TOUCH_PIN);
-    handleTouchFixed(raw);
-    vTaskDelay(15 / portTICK_PERIOD_MS); // ~66Hz Scan
-  }
-}
-
 void handleTouchFixed(int rawTouch) {
   bool isTouch = (rawTouch < touchThreshold);
   unsigned long now = millis();
@@ -465,6 +444,56 @@ void handleTouchFixed(int rawTouch) {
     else if (tapCount == 3) pendingTapAction = 3;
     else if (tapCount >= 4) pendingTapAction = 4;
     tapCount = 0;
+  }
+}
+
+// ============================================================================
+// CORE 0 SENSOR HUB (Touch + Pulse + Motion)
+// ============================================================================
+void taskSensorHub(void* parameter) {
+  while (true) {
+    // 1. TOUCH SENSING
+    int rawTouch = touchRead(TOUCH_PIN);
+    handleTouchFixed(rawTouch);
+
+    // 2. PULSE SENSOR (MAX30102)
+    sensor.check();
+    while (sensor.available()) {
+      long ir = sensor.getIR();
+      sensor.nextSample();
+
+      if (ir < 20000) {
+        count = 0; idx = 0;
+      } else {
+        if (checkForBeat(ir)) {
+          unsigned long now = millis();
+          unsigned long dt = now - lastBeat;
+          lastBeat = now;
+          if (dt > 250 && dt < 2000) {
+            bpm = 60.0f / (dt / 1000.0f);
+            if (bpm >= 35 && bpm <= 200) {
+              buf[idx] = bpm;
+              idx = (idx + 1) % N;
+              if (count < N) count++;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. MOTION SENSOR (MPU6050)
+    if (millis() - lastMotionRead >= 20) {
+      lastMotionRead = millis();
+      if (readMPU(ax_g, ay_g, az_g, gx_dps, gy_dps, gz_dps)) {
+        float accMag = sqrtf(ax_g * ax_g + ay_g * ay_g + az_g * az_g);
+        float accDelta = fabsf(accMag - 1.0f);
+        float gyroMag = sqrtf(gx_dps * gx_dps + gy_dps * gy_dps + gz_dps * gz_dps);
+        float scoreNow = accDelta + (gyroMag / 200.0f);
+        motionScore = motionScore * 0.85f + scoreNow * 0.15f;
+      }
+    }
+
+    vTaskDelay(8 / portTICK_PERIOD_MS); // Maintain ~125Hz loop for responsiveness
   }
 }
 
@@ -596,9 +625,10 @@ void setup() {
   BLEDevice::startAdvertising();
   Serial.println("[BLE] Advertising");
 
-  // Create Background Touch Task (Core 0)
-  xTaskCreatePinnedToCore(taskTouchSense, "TouchTask", 2048, NULL, 5, NULL, 0);
-  Serial.println("[SYSTEM] Touch Task Pinned to Core 0");
+  // Create Background Sensor Hub Task (Core 0)
+  // Handles Motion, Pulse, and Touch in a dedicated high-priority loop
+  xTaskCreatePinnedToCore(taskSensorHub, "SensorHub", 4096, NULL, 5, NULL, 0);
+  Serial.println("[SYSTEM] Sensor Hub (Core 0) Ready");
 
   Serial.printf("[MEM] Free heap at start: %d bytes\n", ESP.getFreeHeap());
   Serial.println("========================================");
@@ -702,9 +732,9 @@ void loop() {
     if (sosActive) {
       int nextUpdate = (LIVE_UPDATE_COOLDOWN - (millis() - lastSosUpdate)) / 1000;
       if (nextUpdate < 0) nextUpdate = 0;
-      Serial.printf("[SYSTEM] WiFi:%d | SOS:1 | HEAP:%d | 📍 NEXT UPDATE: %ds\n", wifi, ESP.getFreeHeap(), nextUpdate);
+      Serial.printf("[SYSTEM] WiFi:%d | SOS:1 | MOTION:%.3f | HEAP:%d | 📍 NEXT UPDATE: %ds\n", wifi, motionScore, ESP.getFreeHeap(), nextUpdate);
     } else {
-      Serial.printf("[SYSTEM] WiFi:%d | SOS:0 | HEAP:%d | GPS:%s,%s\n", wifi, ESP.getFreeHeap(), latestLat, latestLon);
+      Serial.printf("[SYSTEM] WiFi:%d | SOS:0 | MOTION:%.3f | HEAP:%d | GPS:%s,%s\n", wifi, motionScore, ESP.getFreeHeap(), latestLat, latestLon);
     }
   }
 
@@ -747,59 +777,16 @@ void loop() {
     }
   }
 
-  // Motion read at ~50Hz
-  if (millis() - lastMotionRead >= 20) {
-    lastMotionRead = millis();
-    if (readMPU(ax_g, ay_g, az_g, gx_dps, gy_dps, gz_dps)) {
-      float accMag = sqrtf(ax_g * ax_g + ay_g * ay_g + az_g * az_g);
-      float accDelta = fabsf(accMag - 1.0f);
-      float gyroMag = sqrtf(gx_dps * gx_dps + gy_dps * gy_dps + gz_dps * gz_dps);
-      float scoreNow = accDelta + (gyroMag / 200.0f);
-      motionScore = motionScore * 0.85f + scoreNow * 0.15f;
+  // --- AUTO-SOS MONITORING (Main Loop) ---
+  if (!sosActive && !activityMode && (millis() - lastAutoSosTime >= AUTO_SOS_COOLDOWN)) {
+    float currentBpm = avgBpm();
+    if (currentBpm > 35 && (currentBpm < 40 || currentBpm > 140)) {
+      Serial.printf("\n🚨 AUTO-SOS TRIGGERED: BPM=%.1f\n", currentBpm);
+      lastAutoSosTime = millis();
+      triggerAwsSos();
+      sosActive = true;
     }
   }
 
-  // Pulse sensor loop
-  sensor.check();
-  uint32_t innerStart = millis();
-  while (sensor.available() && (millis() - innerStart < 50)) {
-    // Background Task on Core 0 is handling touch for us!
-    processPendingTapAction();
-
-    long ir = sensor.getIR();
-    sensor.nextSample();
-
-    if (ir < 20000) {
-      count = 0; idx = 0;
-      continue;
-    }
-
-    if (checkForBeat(ir)) {
-      unsigned long now = millis();
-      unsigned long dt = now - lastBeat;
-      lastBeat = now;
-      if (dt > 250 && dt < 2000) {
-        bpm = 60.0f / (dt / 1000.0f);
-        if (bpm >= 35 && bpm <= 200) {
-          buf[idx] = bpm;
-          idx = (idx + 1) % N;
-          if (count < N) count++;
-          Serial.printf("BPM=%.1f MOTION=%.3f ACT=%d\n", avgBpm(), motionScore, activityMode);
-
-          // Auto-SOS on abnormal HR
-          if (!sosActive && !activityMode && (millis() - lastAutoSosTime >= AUTO_SOS_COOLDOWN)) {
-            float currentBpm = avgBpm();
-            if (currentBpm > 0 && (currentBpm < 40 || currentBpm > 140)) {
-              Serial.printf("\n🚨 AUTO-SOS: BPM=%.1f\n", currentBpm);
-              lastAutoSosTime = millis();
-              triggerAwsSos();
-              sosActive = true;
-            }
-          }
-        }
-      }
-    }
-  }
-  
   delay(10);
 }

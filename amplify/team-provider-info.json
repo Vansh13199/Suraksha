@@ -20,7 +20,7 @@
       "function": {
         "surakshab48b52dfb48b52dfCreateAuthChallenge": {
           "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",
-          "s3Key": "amplify-builds/surakshab48b52dfb48b52dfCreateAuthChallenge-6f55614a443774686732-build.zip"
+          "s3Key": "amplify-builds/surakshab48b52dfb48b52dfCreateAuthChallenge-55574b757a2f5477496b-build.zip"
         },
         "surakshab48b52dfb48b52dfDefineAuthChallenge": {
           "deploymentBucketName": "amplify-suraksha-dev-ca6ae-deployment",

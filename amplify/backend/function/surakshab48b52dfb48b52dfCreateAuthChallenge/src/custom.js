@@ -2,7 +2,7 @@ const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 
 // Get region from lambda environment variables, default to ap-south-1
 const region = process.env.REGION || process.env.AWS_REGION || 'ap-south-1';
-const snsClient = new SNSClient({ region: 'ap-northeast-3' });
+const snsClient = new SNSClient({ region: 'ap-south-1' });
 
 /**
  * @type {import('@types/aws-lambda').CreateAuthChallengeTriggerHandler}
