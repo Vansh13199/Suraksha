@@ -12,6 +12,7 @@ type User @model @auth(rules: [{ allow: owner }]) {
   securityQuestion: String
   securityAnswer: String
   fcmTokens: [String]
+  isDeactivated: Boolean
 }
 
 type EmergencyContact @model @auth(rules: [{ allow: owner }]) {

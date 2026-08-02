@@ -52,6 +52,7 @@ dependencies:
   battery_plus: ^6.0.1
   amplify_storage_s3: ^1.8.0
   image_picker: ^1.2.3
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:

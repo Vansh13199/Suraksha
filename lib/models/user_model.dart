@@ -11,6 +11,7 @@ class UserModel {
   final bool isEkycVerified;
   final String? securityQuestion;
   final String? securityAnswer;
+  final bool isDeactivated;
   List<String> fcmTokens = [];
 
   UserModel({
@@ -26,6 +27,7 @@ class UserModel {
     this.isEkycVerified = false,
     this.securityQuestion,
     this.securityAnswer,
+    this.isDeactivated = false,
     this.fcmTokens = const [],
   });
 
@@ -42,6 +44,40 @@ class UserModel {
     return calculatedAge;
   }
 
+  UserModel copyWith({
+    String? uid,
+    String? email,
+    String? phoneNumber,
+    String? firstName,
+    String? lastName,
+    DateTime? dateOfBirth,
+    String? gender,
+    String? bloodGroup,
+    String? profilePicUrl,
+    bool? isEkycVerified,
+    String? securityQuestion,
+    String? securityAnswer,
+    bool? isDeactivated,
+    List<String>? fcmTokens,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      gender: gender ?? this.gender,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
+      profilePicUrl: profilePicUrl ?? this.profilePicUrl,
+      isEkycVerified: isEkycVerified ?? this.isEkycVerified,
+      securityQuestion: securityQuestion ?? this.securityQuestion,
+      securityAnswer: securityAnswer ?? this.securityAnswer,
+      isDeactivated: isDeactivated ?? this.isDeactivated,
+      fcmTokens: fcmTokens ?? List.from(this.fcmTokens),
+    );
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       uid: json['uid'] ?? '',
@@ -56,6 +92,7 @@ class UserModel {
       isEkycVerified: json['isEkycVerified'] ?? false,
       securityQuestion: json['securityQuestion'],
       securityAnswer: json['securityAnswer'],
+      isDeactivated: json['isDeactivated'] ?? false,
     );
   }
 
@@ -73,6 +110,7 @@ class UserModel {
       'isEkycVerified': isEkycVerified,
       'securityQuestion': securityQuestion,
       'securityAnswer': securityAnswer,
+      'isDeactivated': isDeactivated,
       'fcmTokens': fcmTokens,
     };
   }

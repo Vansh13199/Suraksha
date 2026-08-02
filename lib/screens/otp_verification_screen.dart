@@ -8,6 +8,7 @@ import 'home_dashboard_screen.dart';
 import 'ekyc_verification_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
+import 'account_deactivated_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -110,6 +111,16 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
       if (success) {
         _timer?.cancel(); // Stop timer on success
+        
+        if (auth.currentUser != null) {
+          if (auth.currentUser!.isDeactivated) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const AccountDeactivatedScreen()),
+            );
+            return;
+          }
+        }
         
         // Check eKYC + profile status
         if (auth.currentUser != null && auth.currentUser!.isEkycVerified) {

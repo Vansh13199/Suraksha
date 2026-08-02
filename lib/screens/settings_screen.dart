@@ -10,6 +10,9 @@ import 'emergency_chat_screen.dart';
 import 'esp32_gps_debug_screen.dart';
 import 'ekyc_verification_screen.dart';
 
+import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
+
 import 'profile_screen.dart';
 import '../../widgets/modern_card.dart';
 
@@ -257,19 +260,34 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             ModernCard(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: _buildSettingsTile(
-                context,
-                icon: Icons.logout_rounded,
-                title: "Logout",
-                isDestructive: true,
-                onTap: () {
-                   Provider.of<AuthProvider>(context, listen: false).signOut();
-                   Navigator.pushAndRemoveUntil(
-                     context, 
-                     MaterialPageRoute(builder: (_) => const SplashScreen()),
-                     (route) => false,
-                   );
-                },
+              child: Column(
+                children: [
+                  _buildSettingsTile(
+                    context,
+                    icon: Icons.person_off_rounded,
+                    title: "Deactivate Account",
+                    isDestructive: true,
+                    onTap: () => _handleDeactivateAccount(context),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1),
+                  ),
+                  _buildSettingsTile(
+                    context,
+                    icon: Icons.logout_rounded,
+                    title: "Logout",
+                    isDestructive: true,
+                    onTap: () {
+                       Provider.of<AuthProvider>(context, listen: false).signOut();
+                       Navigator.pushAndRemoveUntil(
+                         context, 
+                         MaterialPageRoute(builder: (_) => const SplashScreen()),
+                         (route) => false,
+                       );
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 32),
@@ -281,6 +299,76 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleDeactivateAccount(BuildContext context) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Deactivate Account"),
+          content: const Text("Are you sure you want to deactivate your account? You will not be able to use our services."),
+          actions: <Widget>[
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text(
+                "Yes",
+                style: TextStyle(color: AppTheme.alertRed),
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    if (!context.mounted) return;
+
+    final LocalAuthentication localAuth = LocalAuthentication();
+    try {
+      final bool canAuthenticateWithBiometrics = await localAuth.canCheckBiometrics;
+      final bool canAuthenticate = canAuthenticateWithBiometrics || await localAuth.isDeviceSupported();
+
+      if (!canAuthenticate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric authentication is not supported on this device.')),
+        );
+        return;
+      }
+
+      final bool didAuthenticate = await localAuth.authenticate(
+        localizedReason: 'Please authenticate to deactivate your account',
+        biometricOnly: false,
+        persistAcrossBackgrounding: true,
+      );
+
+      if (didAuthenticate && context.mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final user = authProvider.currentUser;
+        if (user != null) {
+          await authProvider.updateUserDetails(user.copyWith(isDeactivated: true));
+          authProvider.signOut();
+          if (context.mounted) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const SplashScreen()),
+              (route) => false,
+            );
+          }
+        }
+      }
+    } on PlatformException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error during authentication: ${e.message}')),
+        );
+      }
+    }
   }
 
   Widget _buildSettingsTile(BuildContext context, {

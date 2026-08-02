@@ -23,6 +23,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
       Permission.sms, // For emergency contacts
+      Permission.phone, // For direct automatic calls
     ].request();
 
     setState(() {
@@ -97,6 +98,13 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 icon: Icons.bluetooth_connected, 
                 title: "Bluetooth", 
                 description: "To connect with your ESP32 safety device."
+              ),
+              const SizedBox(height: 16),
+              _buildPermissionItem(
+                context, 
+                icon: Icons.phone_forwarded, 
+                title: "Phone Calls", 
+                description: "To instantly auto-dial emergency contacts during SOS."
               ),
               const Spacer(),
               PrimaryButton(

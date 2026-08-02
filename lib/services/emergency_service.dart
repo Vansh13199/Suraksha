@@ -69,9 +69,9 @@ class EmergencyService {
         await _sendSmsBackend(contacts, message);
       }
 
-      // 6. Initiate Phone Call (Direct to 112)
+      // 6. Initiate Phone Call (Direct to emergency contact)
       if (!isLowBattery) {
-        await _callEmergencyDirectly();
+        await _callEmergencyDirectly(contacts);
       }
     } catch (e) {
       safePrint('[SOS] CRITICAL ERROR: $e');
@@ -255,8 +255,12 @@ class EmergencyService {
   }
 
   /// Call emergency number directly.
-  Future<void> _callEmergencyDirectly() async {
-    const String emergencyNumber = '112';
+  Future<void> _callEmergencyDirectly(List<ContactModel> contacts) async {
+    String emergencyNumber = '112';
+    if (contacts.isNotEmpty) {
+      emergencyNumber = contacts.first.phoneNumber;
+    }
+    
     try {
       safePrint('[SOS] Checking permissions for DIRECT call...');
 

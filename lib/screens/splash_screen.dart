@@ -6,6 +6,7 @@ import 'register_email_screen.dart';
 import 'home_dashboard_screen.dart';
 import 'user_details_screen.dart';
 import 'ekyc_verification_screen.dart';
+import 'account_deactivated_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -60,6 +61,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (authProvider.isSignedIn) {
       if (authProvider.currentUser != null) {
+        if (authProvider.currentUser!.isDeactivated) {
+          Navigator.pushReplacement(
+              context, MaterialPageRoute(builder: (_) => const AccountDeactivatedScreen()));
+          return;
+        }
+
         if (authProvider.currentUser!.isEkycVerified) {
           if (authProvider.currentUser!.firstName != null &&
               authProvider.currentUser!.firstName!.isNotEmpty) {

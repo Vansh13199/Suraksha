@@ -364,7 +364,7 @@ class AuthService {
 
       final doc = '''query GetUser(\$id: ID!) {
         getUser(id: \$id) {
-          id email phoneNumber firstName lastName dateOfBirth gender bloodGroup profilePicUrl isEkycVerified securityQuestion securityAnswer fcmTokens
+          id email phoneNumber firstName lastName dateOfBirth gender bloodGroup profilePicUrl isEkycVerified securityQuestion securityAnswer fcmTokens isDeactivated
         }
       }''';
       final request = GraphQLRequest<String>(document: doc, variables: {'id': id});
@@ -418,6 +418,7 @@ class AuthService {
           'isEkycVerified': user.isEkycVerified,
           'securityQuestion': user.securityQuestion,
           'securityAnswer': user.securityAnswer,
+          'isDeactivated': user.isDeactivated,
           'fcmTokens': tokens,
         }
       },
