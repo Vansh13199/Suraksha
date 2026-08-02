@@ -15,7 +15,6 @@ export type AmplifyDependentResourcesAttributes = {
     "surakshab48b52dfb48b52df": {
       "AppClientID": "string",
       "AppClientIDWeb": "string",
-      "CreatedSNSRole": "string",
       "IdentityPoolId": "string",
       "IdentityPoolName": "string",
       "UserPoolArn": "string",
@@ -50,6 +49,12 @@ export type AmplifyDependentResourcesAttributes = {
       "LambdaExecutionRole": "string",
       "LambdaExecutionRoleArn": "string",
       "Name": "string",
+      "Region": "string"
+    }
+  },
+  "storage": {
+    "s3498b7e00": {
+      "BucketName": "string",
       "Region": "string"
     }
   }

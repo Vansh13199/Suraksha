@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:amplify_flutter/amplify_flutter.dart' hide AuthProvider;
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' hide AuthProvider;
 import 'package:amplify_api/amplify_api.dart';
+import 'package:amplify_storage_s3/amplify_storage_s3.dart';
 import 'amplifyconfiguration.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -16,6 +17,11 @@ import 'providers/assistant_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/emergency_chat_screen.dart';
 import 'screens/in_app_live_location_screen.dart';
+import 'screens/home_dashboard_screen.dart';
+import 'screens/register_email_screen.dart';
+import 'screens/user_details_screen.dart';
+import 'screens/ekyc_verification_screen.dart';
+import 'screens/in_app_live_location_screen.dart';
 import 'services/background_service.dart';
 import 'services/auth_service.dart';
 import 'services/push_notification_service.dart';
@@ -23,6 +29,8 @@ import 'services/battery_monitor_service.dart';
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -103,8 +111,9 @@ Future<void> _configureAmplify() async {
   try {
     final authPlugin = AmplifyAuthCognito();
     final apiPlugin = AmplifyAPI();
+    final storagePlugin = AmplifyStorageS3();
 
-    await Amplify.addPlugins([authPlugin, apiPlugin]);
+    await Amplify.addPlugins([authPlugin, apiPlugin, storagePlugin]);
     await Amplify.configure(amplifyconfig);
 
     safePrint('[Amplify] Configured successfully');
@@ -199,6 +208,68 @@ class _SurakshaPlusAppState extends State<SurakshaPlusApp> {
         theme: AppTheme.lightTheme,
         home: const SplashScreen(),
       ),
+    );
+  }
+}
+
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  void _checkAuth() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.waitForInit();
+
+    if (!mounted) return;
+
+    Widget nextScreen;
+    if (authProvider.isSignedIn) {
+      if (authProvider.currentUser != null) {
+        if (authProvider.currentUser!.isEkycVerified) {
+          if (authProvider.currentUser!.firstName != null &&
+              authProvider.currentUser!.firstName!.isNotEmpty) {
+            nextScreen = const HomeDashboardScreen();
+          } else {
+            nextScreen = const UserDetailsScreen();
+          }
+        } else {
+          nextScreen = const EkycVerificationScreen();
+        }
+      } else {
+        nextScreen = const EkycVerificationScreen();
+      }
+    } else {
+      nextScreen = const RegisterEmailScreen();
+    }
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+
+
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Return a solid blue background that matches the native splash to prevent any visual tearing
+    return const Scaffold(
+      backgroundColor: AppTheme.primaryBlue,
+      body: SizedBox.expand(),
     );
   }
 }

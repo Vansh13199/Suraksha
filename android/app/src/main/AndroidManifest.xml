@@ -39,7 +39,7 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
     <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
     <application
-        android:label="suraksha_plus"
+        android:label="Suraksha+"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

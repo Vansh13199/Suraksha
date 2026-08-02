@@ -20,14 +20,20 @@ const {
 } = require("@aws-sdk/client-cognito-identity-provider");
 
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, ScanCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, ScanCommand, QueryCommand, GetCommand, PutCommand, DeleteCommand } = require("@aws-sdk/lib-dynamodb");
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 
-const region = process.env.REGION || 'ap-south-1';
+const region = process.env.REGION || 'us-east-1';
 const client = new CognitoIdentityProviderClient({ region });
 const ddbClient = new DynamoDBClient({ region });
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
-const snsClient = new SNSClient({ region: 'ap-northeast-3' });
+const snsClient = new SNSClient({ region: 'ap-south-1' });
+const sesClient = new SESClient({ region: 'ap-south-1' });
+const SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'mail-delivery@dev-vansh.in';
+
+// In-memory fallback store for eKYC OTP verification (email -> { otp, expiresAt })
+const ekycOtpStore = new Map();
 
 // declare a new express app
 const app = express()
@@ -62,7 +68,7 @@ app.get('/sos/*', function(req, res) {
 
 app.post('/sos', async function(req, res) {
   try {
-    const { action, phoneNumber, password, contacts, message } = req.body;
+    const { action, phoneNumber, email, password, contacts, message } = req.body;
     
     // 1. Handle Flutter Manual SOS (Send SMS via SNS)
     if (contacts && Array.isArray(contacts) && message) {
@@ -86,14 +92,20 @@ app.post('/sos', async function(req, res) {
     // 2. Handle Authentication Sign-up
     if (action === 'signup') {
       // Find the UserPoolId from environment variables
-      let userPoolId = process.env[Object.keys(process.env).find(k => k.endsWith('_USERPOOLID'))];
-      if (!userPoolId) { userPoolId = 'ap-south-1_iFJ06Qql9'; }
+      let userPoolId = process.env.AUTH_USERPOOLID || process.env[Object.keys(process.env).find(k => k.endsWith('_USERPOOLID'))];
+      if (!userPoolId) { userPoolId = 'ap-south-1_1TneTP053'; }
+
+      // Use email as the Cognito username
+      const signupEmail = email || phoneNumber; // fallback for backward compat
 
       try {
         await client.send(new AdminCreateUserCommand({
           UserPoolId: userPoolId,
-          Username: phoneNumber,
-          UserAttributes: [{ Name: 'phone_number', Value: phoneNumber }],
+          Username: signupEmail,
+          UserAttributes: [
+            { Name: 'email', Value: signupEmail },
+            { Name: 'email_verified', Value: 'true' },
+          ],
           MessageAction: 'SUPPRESS'
         }));
       } catch (e) {
@@ -102,12 +114,140 @@ app.post('/sos', async function(req, res) {
 
       await client.send(new AdminSetUserPasswordCommand({
         UserPoolId: userPoolId,
-        Username: phoneNumber,
+        Username: signupEmail,
         Password: password,
         Permanent: true
       }));
 
-      return res.json({ success: 'User ready!', phoneNumber });
+      return res.json({ success: 'User ready!', email: signupEmail });
+    }
+
+    // 3. Handle eKYC OTP Send via SES
+    if (action === 'send-ekyc-otp') {
+      if (!email) return res.status(400).json({ error: "Email is required" });
+      
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+      
+      // Store in memory
+      ekycOtpStore.set(email, { otp, expiresAt });
+      
+      // Try to backup in DynamoDB SOSSession table for resilience across Lambda container freezes
+      try {
+        const env = process.env.ENV || 'prod';
+        const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${env}`;
+        await ddbDocClient.send(new PutCommand({
+          TableName: sosTable,
+          Item: {
+            id: `EKYC_${email}`,
+            phoneNumber: email,
+            isActive: false,
+            latitude: 0,
+            longitude: 0,
+            __typename: "SOSSession",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date(expiresAt).toISOString(),
+            owner: email,
+            otp: otp
+          }
+        }));
+        console.log(`[EKYC] Saved OTP backup to DynamoDB for ${email}`);
+      } catch (dbErr) {
+        console.warn(`[EKYC] Could not save OTP backup to DynamoDB (using memory only):`, dbErr.message);
+      }
+
+      // Send Email via AWS SES
+      console.log(`[EKYC] Sending OTP email via SES to ${email}`);
+      const command = new SendEmailCommand({
+        Source: SENDER_EMAIL,
+        Destination: { ToAddresses: [email] },
+        Message: {
+          Subject: { Data: 'Suraksha+ - Your eKYC Verification OTP', Charset: 'UTF-8' },
+          Body: {
+            Html: {
+              Data: `
+                <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color: #1565C0; text-align: center;">Suraksha+ eKYC Verification</h2>
+                  <p style="font-size: 16px; color: #333;">Your one-time verification code for eKYC is:</p>
+                  <div style="background: #e8f5e9; border-radius: 12px; padding: 20px; text-align: center; margin: 16px 0;">
+                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2e7d32;">${otp}</span>
+                  </div>
+                  <p style="font-size: 14px; color: #666;">This code expires in 10 minutes. Please enter this in the Suraksha+ app to complete your identity verification.</p>
+                  <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                  <p style="font-size: 12px; color: #999; text-align: center;">Suraksha+ — Connecting Safety</p>
+                </div>
+              `,
+              Charset: 'UTF-8'
+            },
+            Text: {
+              Data: `[Suraksha+ eKYC] Your verification code is: ${otp}. Do not share this code.`,
+              Charset: 'UTF-8'
+            }
+          }
+        }
+      });
+
+      await sesClient.send(command);
+      console.log(`[EKYC] Successfully sent OTP via SES to ${email}`);
+      return res.json({ success: true, message: "OTP sent successfully" });
+    }
+
+    // 4. Handle eKYC OTP Verify
+    if (action === 'verify-ekyc-otp') {
+      const { otp } = req.body;
+      if (!email || !otp) return res.status(400).json({ error: "Email and OTP are required", verified: false });
+
+      let storedOtp = null;
+      let expiresAt = 0;
+
+      // 1. Check memory first
+      if (ekycOtpStore.has(email)) {
+        const entry = ekycOtpStore.get(email);
+        storedOtp = entry.otp;
+        expiresAt = entry.expiresAt;
+      } else {
+        // 2. Fallback check in DynamoDB
+        try {
+          const env = process.env.ENV || 'prod';
+          const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${env}`;
+          const getRes = await ddbDocClient.send(new GetCommand({
+            TableName: sosTable,
+            Key: { id: `EKYC_${email}` }
+          }));
+          if (getRes.Item && getRes.Item.otp) {
+            storedOtp = getRes.Item.otp;
+            expiresAt = new Date(getRes.Item.updatedAt).getTime();
+          }
+        } catch (dbErr) {
+          console.warn(`[EKYC] Could not fetch OTP from DynamoDB:`, dbErr.message);
+        }
+      }
+
+      if (!storedOtp) {
+        console.warn(`[EKYC] No OTP found for ${email}`);
+        return res.json({ verified: false, error: "OTP expired or not found. Please click resend." });
+      }
+
+      if (Date.now() > expiresAt) {
+        ekycOtpStore.delete(email);
+        return res.json({ verified: false, error: "OTP expired. Please request a new one." });
+      }
+
+      if (storedOtp === otp.trim()) {
+        ekycOtpStore.delete(email);
+        // Clean up from DynamoDB best-effort
+        try {
+          const env = process.env.ENV || 'prod';
+          const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${env}`;
+          await ddbDocClient.send(new DeleteCommand({ TableName: sosTable, Key: { id: `EKYC_${email}` } }));
+        } catch (_) {}
+
+        console.log(`[EKYC] OTP verified successfully for ${email}`);
+        return res.json({ success: true, verified: true });
+      } else {
+        console.warn(`[EKYC] Invalid OTP entered for ${email}`);
+        return res.json({ verified: false, error: "Invalid OTP" });
+      }
     }
     
     res.json({ success: 'post call succeed!', url: req.url, body: req.body });

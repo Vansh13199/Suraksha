@@ -3,5 +3,15 @@
     "configLevel": "project",
     "useProfile": false,
     "awsConfigFilePath": "C:\\Users\\vkisl\\.amplify\\awscloudformation\\Xk6iaxomqv"
+  },
+  "devnew": {
+    "configLevel": "project",
+    "useProfile": true,
+    "profileName": "default"
+  },
+  "prod": {
+    "configLevel": "project",
+    "useProfile": true,
+    "profileName": "default"
   }
 }

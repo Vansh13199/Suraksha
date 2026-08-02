@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../models/user_model.dart';
 import '../../widgets/primary_button.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/validators.dart';
 import 'home_dashboard_screen.dart';
 
 class UserDetailsScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   
   DateTime? _selectedDate;
   String _selectedGender = 'Male';
@@ -31,6 +33,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -73,22 +76,26 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
     final auth = context.read<AuthProvider>();
     
-    // Create updated user model
-    // Note: phoneNumber and id should already be in auth.currentUser or auth.tempPhoneNumber logic
-    // But typically we are creating a NEW profile record here.
-    
-    // We need the phone number from the current auth state if available
-    // final phone = auth.currentUser?.phoneNumber ?? auth.tempPhoneNumber ?? ""; // This line is removed
+    // Build phone number with +91 prefix
+    final rawPhone = _phoneController.text.trim();
+    final phone = rawPhone.startsWith('+')
+        ? rawPhone
+        : '+91$rawPhone';
 
     final newUser = UserModel(
       uid: auth.currentUser?.uid ?? "", 
-      phoneNumber: auth.currentUser?.phoneNumber ?? auth.tempPhoneNumber ?? "",
+      email: auth.currentUser?.email ?? auth.tempEmail ?? "",
+      phoneNumber: phone,
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
       dateOfBirth: _selectedDate!,
       gender: _selectedGender,
       bloodGroup: _selectedBloodGroup,
-    );
+      profilePicUrl: auth.currentUser?.profilePicUrl,
+      isEkycVerified: auth.currentUser?.isEkycVerified ?? true,
+      securityQuestion: auth.currentUser?.securityQuestion,
+      securityAnswer: auth.currentUser?.securityAnswer,
+    )..fcmTokens = auth.currentUser?.fcmTokens ?? [];
 
     try {
       await auth.updateUserDetails(newUser);
@@ -174,6 +181,23 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 20),
+
+                // Phone Number (now collected here instead of at registration)
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: Validators.validatePhoneNumber,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  decoration: InputDecoration(
+                    labelText: "Phone Number",
+                    hintText: "12345 67890",
+                    prefixIcon: const Icon(Icons.phone_android_rounded),
+                    prefixText: "+91 ",
+                    prefixStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textDark),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
                 const SizedBox(height: 20),
 

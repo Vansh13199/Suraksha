@@ -6,7 +6,7 @@
     "resourceNameTruncated": "suraksb48b52df",
     "userPoolName": "surakshab48b52df_userpool_b48b52df",
     "autoVerifiedAttributes": [
-      "phone_number"
+      "email"
     ],
     "mfaConfiguration": "OFF",
     "mfaTypes": [
@@ -20,7 +20,7 @@
     "passwordPolicyMinLength": 8,
     "passwordPolicyCharacters": [],
     "requiredAttributes": [
-      "phone_number"
+      "email"
     ],
     "aliasAttributes": [],
     "userpoolClientGenerateSecret": false,
@@ -39,7 +39,7 @@
     "useDefault": "manual",
     "thirdPartyAuth": false,
     "usernameAttributes": [
-      "phone_number"
+      "email"
     ],
     "userPoolGroups": false,
     "adminQueries": false,
@@ -60,4 +60,4 @@
     "usernameCaseSensitive": false,
     "useEnabledMfas": true
   }
-}
+} 

@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   amplify_db_common
   battery_plus
   connectivity_plus
+  file_selector_windows
   firebase_core
   flutter_ble_peripheral
   geolocator_windows

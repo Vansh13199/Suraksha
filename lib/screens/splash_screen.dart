@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
-import 'register_phone_screen.dart';
+import 'register_email_screen.dart';
 import 'home_dashboard_screen.dart';
-import 'user_details_screen.dart'; 
+import 'user_details_screen.dart';
+import 'ekyc_verification_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,6 +22,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+    
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -58,18 +60,31 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (authProvider.isSignedIn) {
       if (authProvider.currentUser != null) {
-        // Profile exists → Home
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const HomeDashboardScreen()));
+        if (authProvider.currentUser!.isEkycVerified) {
+          if (authProvider.currentUser!.firstName != null &&
+              authProvider.currentUser!.firstName!.isNotEmpty) {
+            // Profile exists + eKYC verified → Home
+            Navigator.pushReplacement(
+                context, MaterialPageRoute(builder: (_) => const HomeDashboardScreen()));
+          } else {
+            // eKYC verified but no profile details → User Details
+            Navigator.pushReplacement(
+                context, MaterialPageRoute(builder: (_) => const UserDetailsScreen()));
+          }
+        } else {
+          // NOT eKYC verified → eKYC flow
+          Navigator.pushReplacement(
+              context, MaterialPageRoute(builder: (_) => const EkycVerificationScreen()));
+        }
       } else {
-        // Signed in but no profile → Enter Details
+        // Signed in but no user record at all → eKYC first
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const UserDetailsScreen()));
+            context, MaterialPageRoute(builder: (_) => const EkycVerificationScreen()));
       }
     } else {
       // Not signed in → Login
       Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const RegisterPhoneScreen()));
+          context, MaterialPageRoute(builder: (_) => const RegisterEmailScreen()));
     }
   }
 
@@ -78,32 +93,30 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryBlue,
-              AppTheme.darkBlue,
-            ],
-          ),
+          color: AppTheme.primaryBlue,
         ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ScaleTransition(
-                scale: _fadeAnimation,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.shield_moon_rounded, size: 80, color: Colors.white),
-                ),
+        child: SizedBox.expand(
+          child: Stack(
+            alignment: Alignment.center,
+          children: [
+            // 1. The Logo - Exactly in the geometric center
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 24),
-              SlideTransition(
+              child: const Icon(
+                Icons.shield_moon_outlined,
+                size: 100,
+                color: Colors.white,
+              ),
+            ),
+            
+            // 2. The Text - Positioned below the logo, animated in
+            Positioned(
+              top: MediaQuery.of(context).size.height / 2 + 80, // Offset below center
+              child: SlideTransition(
                 position: _slideAnimation,
                 child: FadeTransition(
                   opacity: _fadeAnimation,
@@ -131,8 +144,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
         ),
       ),
     );

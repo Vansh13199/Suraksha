@@ -1,7 +1,8 @@
 [
   {
     "Action": [
-      "sns:Publish"
+      "ses:SendEmail",
+      "ses:SendRawEmail"
     ],
     "Resource": [
       "*"

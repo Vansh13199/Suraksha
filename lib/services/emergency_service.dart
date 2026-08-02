@@ -7,16 +7,17 @@ import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/contact_model.dart';
 import 'location_service.dart';
+import 'auth_service.dart';
 
 class EmergencyService {
   final LocationService _locationService = LocationService();
+  final AuthService _authService = AuthService();
   bool _isSosActive = false;
 
   // Track session ID and subscriptions
   String? _currentSosSessionId;
   StreamSubscription<LocationData>? _locationSubscription;
   Timer? _locationTimer;
-  final String _testPhoneNumber = '+919999999999';
 
   bool get isSosActive => _isSosActive;
   String? get currentSosSessionId => _currentSosSessionId;
@@ -80,18 +81,19 @@ class EmergencyService {
   /// Create SOS session in GraphQL backend.
   Future<void> _createSosSession(LocationData? location, List<ContactModel> contacts, bool isLowBattery) async {
     try {
-      String userPhone = _testPhoneNumber;
+      // Fetch phone number from the user's DynamoDB profile
+      String userPhone = '';
       try {
-        final attributes = await Amplify.Auth.fetchUserAttributes();
-        final phoneAttr = attributes.firstWhere(
-          (a) => a.userAttributeKey.key == 'phone_number',
-          orElse: () => AuthUserAttribute(
-            userAttributeKey: const CognitoUserAttributeKey.custom('phone_number'),
-            value: _testPhoneNumber,
-          ),
-        );
-        userPhone = phoneAttr.value;
-      } catch (_) {}
+        final userDetails = await _authService.getUserDetails();
+        if (userDetails != null && userDetails.phoneNumber.isNotEmpty) {
+          userPhone = userDetails.phoneNumber;
+          safePrint('[SOS] Phone number fetched from user profile: $userPhone');
+        } else {
+          safePrint('[SOS] WARNING: No phone number found in user profile!');
+        }
+      } catch (e) {
+        safePrint('[SOS] ERROR fetching user phone from profile: $e');
+      }
 
       safePrint('[SOS] Creating session: phone=$userPhone, lat=${location?.latitude}, lng=${location?.longitude}');
 

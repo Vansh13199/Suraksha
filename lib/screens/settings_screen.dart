@@ -8,6 +8,7 @@ import 'splash_screen.dart';
 import 'location_privacy_screen.dart';
 import 'emergency_chat_screen.dart';
 import 'esp32_gps_debug_screen.dart';
+import 'ekyc_verification_screen.dart';
 
 import 'profile_screen.dart';
 import '../../widgets/modern_card.dart';
@@ -32,6 +33,32 @@ class SettingsScreen extends StatelessWidget {
                      icon: Icons.person_outline_rounded,
                      title: "Profile",
                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                   ),
+                   const Padding(
+                     padding: EdgeInsets.symmetric(horizontal: 16),
+                     child: Divider(height: 1),
+                   ),
+                   Consumer<AuthProvider>(
+                     builder: (context, auth, _) {
+                       final isVerified = auth.isEkycVerified;
+                       return _buildSettingsTileWithStatus(
+                         context,
+                         icon: Icons.verified_user_outlined,
+                         title: "eKYC Verification",
+                         statusText: isVerified ? "Verified" : "Not Verified",
+                         statusColor: isVerified ? AppTheme.successGreen : const Color(0xFFE65100),
+                         onTap: isVerified
+                             ? () {
+                                 ScaffoldMessenger.of(context).showSnackBar(
+                                   const SnackBar(
+                                     content: Text("Your eKYC is already verified ✅"),
+                                     backgroundColor: AppTheme.successGreen,
+                                   ),
+                                 );
+                               }
+                             : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EkycVerificationScreen())),
+                       );
+                     },
                    ),
                    const Padding(
                      padding: EdgeInsets.symmetric(horizontal: 16),
@@ -277,6 +304,43 @@ class SettingsScreen extends StatelessWidget {
         style: TextStyle(
           fontWeight: FontWeight.w600,
           color: isDestructive ? AppTheme.alertRed : AppTheme.textDark,
+        ),
+      ),
+      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.textGrey),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildSettingsTileWithStatus(BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String statusText,
+    required Color statusColor,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: statusColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: statusColor, size: 24),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textDark,
+        ),
+      ),
+      subtitle: Text(
+        statusText,
+        style: TextStyle(
+          color: statusColor,
+          fontWeight: FontWeight.w500,
+          fontSize: 12,
         ),
       ),
       trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.textGrey),

@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/primary_button.dart';
 import 'user_details_screen.dart';
 import 'home_dashboard_screen.dart';
+import 'ekyc_verification_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 
@@ -62,13 +63,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   Future<void> _resendOtp() async {
     final auth = context.read<AuthProvider>();
-    if (auth.tempPhoneNumber == null) return;
+    if (auth.tempEmail == null) return;
 
     // Reset timer immediately to prevent double clicks
     startTimer();
 
     try {
-      final success = await auth.sendOtp(auth.tempPhoneNumber!);
+      final success = await auth.sendOtp(auth.tempEmail!);
       
       if (mounted) {
         if (success) {
@@ -110,18 +111,27 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (success) {
         _timer?.cancel(); // Stop timer on success
         
-        // Check if user profile already exists in database
-        if (auth.currentUser != null) {
-          // Profile exists → skip details, go to Home
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-          );
+        // Check eKYC + profile status
+        if (auth.currentUser != null && auth.currentUser!.isEkycVerified) {
+          if (auth.currentUser!.firstName != null &&
+              auth.currentUser!.firstName!.isNotEmpty) {
+            // eKYC verified + profile exists → Home
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
+            );
+          } else {
+            // eKYC verified but no profile details → User Details
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const UserDetailsScreen()),
+            );
+          }
         } else {
-          // No profile → go to Enter Details
+          // Not eKYC verified → eKYC Verification
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const UserDetailsScreen()),
+            MaterialPageRoute(builder: (_) => const EkycVerificationScreen()),
           );
         }
       } else {
@@ -178,7 +188,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "We have sent a 6-digit code to your number",
+                        "We have sent a 6-digit code to your email",
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppTheme.textGrey,

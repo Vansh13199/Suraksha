@@ -1,0 +1,12 @@
+{
+  "resourceName": "s3498b7e00",
+  "bucketName": "suraksha-storage-prod",
+  "policyUUID": "498b7e00",
+  "storageAccess": "auth",
+  "guestAccess": [],
+  "authAccess": [
+    "CREATE_AND_UPDATE",
+    "READ",
+    "DELETE"
+  ]
+}

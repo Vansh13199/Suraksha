@@ -26,17 +26,19 @@ class GeminiAssistantService {
   GeminiAssistantService._internal();
 
   // =====================================================
-  // 🔑 PASTE YOUR GEMINI API KEY BELOW
-  // Get one free at: https://aistudio.google.com/apikey
+  // 🔑 PASTE YOUR GROQ API KEY BELOW
+  // Get one free at: https://console.groq.com/keys
   // =====================================================
-  static const String _apiKey = 'AIzaSyAaeAdx6YfQ5AtOTB5VNirQZxP3YnLQ2mw';
+  static const String _apiKey = 'YOUR_GROQ_API_KEY';
 
-  // Try multiple models in order of preference
+  // Groq models in order of preference (fastest first)
+  // Free tier: 30 RPM, 14,400 RPD
   static const List<String> _models = [
-    'gemini-2.5-flash-lite',
+    'llama-3.1-8b-instant',    // Fastest, 8B params, 30 RPM
+    'llama-3.3-70b-versatile', // Smarter, 70B params, 30 RPM
   ];
-  static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models';
+
+  static const String _baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
   SystemState _currentState = SystemState.normal;
   DeviceContext _deviceContext = DeviceContext();
@@ -95,67 +97,74 @@ User Location: $loc''';
     return systemContext;
   }
 
-  /// Send a message to Gemini — tries multiple models, retries on 429
+  /// Send a message to Groq — tries multiple models, retries on 429
   Future<String> processMessage(String userMessage) async {
-    if (_apiKey == 'YOUR_GEMINI_API_KEY_HERE') {
-      return 'Please set your Gemini API key in lib/services/gemini_assistant_service.dart';
+    if (_apiKey == 'YOUR_GROQ_API_KEY_HERE') {
+      return 'Please set your Groq API key in lib/services/gemini_assistant_service.dart';
     }
-
-    final requestBody = jsonEncode({
-      'contents': [
-        {
-          'role': 'user',
-          'parts': [
-            {'text': '${_buildSystemPrompt()}\n\nUser: $userMessage'}
-          ]
-        }
-      ],
-      'generationConfig': {
-        'maxOutputTokens': 300,
-        'temperature': 0.4,
-      },
-    });
 
     // Try each model until one works
     for (final model in _models) {
       try {
-        final url = Uri.parse('$_baseUrl/$model:generateContent?key=$_apiKey');
-        print('[Gemini] Trying model: $model');
+        print('[Groq] Trying model: $model');
 
+        final requestBody = jsonEncode({
+          'model': model,
+          'messages': [
+            {
+              'role': 'system',
+              'content': _buildSystemPrompt(),
+            },
+            {
+              'role': 'user',
+              'content': userMessage,
+            },
+          ],
+          'max_tokens': 300,
+          'temperature': 0.4,
+        });
+
+        final url = Uri.parse(_baseUrl);
         var response = await http.post(
           url,
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
           body: requestBody,
         );
 
         // Retry once after delay on 429
         if (response.statusCode == 429) {
-          print('[Gemini] Rate limited on $model, retrying in 5s...');
+          print('[Groq] Rate limited on $model, retrying in 5s...');
           await Future.delayed(const Duration(seconds: 5));
           response = await http.post(
             url,
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_apiKey',
+            },
             body: requestBody,
           );
         }
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final candidates = data['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final parts = candidates[0]['content']['parts'] as List?;
-            if (parts != null && parts.isNotEmpty) {
-              print('[Gemini] Success with model: $model');
-              return parts[0]['text'] as String;
+          final choices = data['choices'] as List?;
+          if (choices != null && choices.isNotEmpty) {
+            final content = choices[0]['message']['content'] as String?;
+            if (content != null && content.isNotEmpty) {
+              print('[Groq] Success with model: $model');
+              return content;
             }
           }
           return 'I could not process that. Please try again.';
         } else {
-          print('[Gemini] $model returned ${response.statusCode}, trying next...');
+          print('[Groq] $model returned ${response.statusCode}, trying next...');
           continue; // Try next model
         }
       } catch (e) {
-        print('[Gemini] Exception with $model: $e');
+        print('[Groq] Exception with $model: $e');
         continue; // Try next model
       }
     }
@@ -172,29 +181,32 @@ User Location: $loc''';
         "Advise the contact to call the user if they want to be sure. "
         "Keep your response extremely brief, calm, and robotic. Do not act human. Answer in 1-2 short sentences maximum.";
 
-    final Map<String, dynamic> body = {
-      'systemInstruction': {
-        'parts': [{'text': systemInstruction}]
-      },
-      'contents': [
-        {
-          'role': 'user',
-          'parts': [{'text': message}]
-        }
-      ],
-      'generationConfig': {
-        'temperature': 0.2, // Keep responses highly predictable
-        'maxOutputTokens': 150,
-      }
-    };
-
     for (final model in _models) {
       try {
-        final uri = Uri.parse('$_baseUrl/$model:generateContent?key=$_apiKey');
+        final body = jsonEncode({
+          'model': model,
+          'messages': [
+            {
+              'role': 'system',
+              'content': systemInstruction,
+            },
+            {
+              'role': 'user',
+              'content': message,
+            },
+          ],
+          'max_tokens': 150,
+          'temperature': 0.2,
+        });
+
+        final uri = Uri.parse(_baseUrl);
         final response = await http.post(
           uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+          body: body,
         );
 
         if (response.statusCode == 429) {
@@ -204,11 +216,11 @@ User Location: $loc''';
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final candidates = data['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final parts = candidates[0]['content']['parts'] as List?;
-            if (parts != null && parts.isNotEmpty) {
-              return parts[0]['text'] as String;
+          final choices = data['choices'] as List?;
+          if (choices != null && choices.isNotEmpty) {
+            final content = choices[0]['message']['content'] as String?;
+            if (content != null && content.isNotEmpty) {
+              return content;
             }
           }
           return 'System Error processing reply.';

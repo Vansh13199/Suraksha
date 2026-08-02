@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart' hide AuthProvider;
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart' hide AuthProvider;
 import '../services/auth_service.dart';
+import '../services/ekyc_service.dart';
 import '../models/user_model.dart';
 import 'dart:math';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final EkycService _ekycService = EkycService();
 
   UserModel? _currentUser;
   bool _isLoading = false;
-  String? _tempPhoneNumber;
+  String? _tempEmail;
   bool _isSignedIn = false;
   String? _errorMessage;
   bool _isAwaitingOtp = false;
@@ -19,10 +21,11 @@ class AuthProvider extends ChangeNotifier {
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
-  String? get tempPhoneNumber => _tempPhoneNumber;
+  String? get tempEmail => _tempEmail;
   bool get isSignedIn => _isSignedIn;
   String? get errorMessage => _errorMessage;
   bool get isAwaitingOtp => _isAwaitingOtp;
+  bool get isEkycVerified => _currentUser?.isEkycVerified ?? false;
 
   /// Wait for the initial auth check + profile fetch to finish.
   Future<void> waitForInit() => _initCompleter.future;
@@ -74,8 +77,8 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Sign up with phone number (passwordless — just creates user).
-  Future<bool> signUp({required String phoneNumber}) async {
+  /// Sign up with email (passwordless — just creates user).
+  Future<bool> signUp({required String email}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -84,17 +87,17 @@ class AuthProvider extends ChangeNotifier {
       final randomPassword = _generateRandomPassword();
 
       final result = await Amplify.Auth.signUp(
-        username: phoneNumber,
+        username: email,
         password: randomPassword,
         options: SignUpOptions(
           userAttributes: {
-            AuthUserAttributeKey.phoneNumber: phoneNumber,
+            AuthUserAttributeKey.email: email,
           },
         ),
       );
 
       safePrint('[AuthProvider] SignUp result: ${result.nextStep.signUpStep}');
-      _tempPhoneNumber = phoneNumber;
+      _tempEmail = email;
       _isLoading = false;
       notifyListeners();
       return result.isSignUpComplete || result.nextStep.signUpStep == AuthSignUpStep.confirmSignUp;
@@ -107,13 +110,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Start passwordless sign-in with phone number.
-  /// Triggers Custom Auth flow and sends OTP via Lambda.
+  /// Start passwordless sign-in with email.
+  /// Triggers Custom Auth flow and sends OTP via Lambda (SES).
   /// Automatically signs up new users if they don't exist.
-  Future<bool> sendOtp(String phoneNumber) async {
+  Future<bool> sendOtp(String email) async {
     _isLoading = true;
     _errorMessage = null;
-    _tempPhoneNumber = phoneNumber;
+    _tempEmail = email;
     notifyListeners();
 
     try {
@@ -123,7 +126,7 @@ class AuthProvider extends ChangeNotifier {
       } catch (_) {}
 
       final result = await Amplify.Auth.signIn(
-        username: phoneNumber,
+        username: email,
         password: 'SurakshaPassword@123',
         options: SignInOptions(
           pluginOptions: const CognitoSignInPluginOptions(
@@ -162,10 +165,10 @@ class AuthProvider extends ChangeNotifier {
       return result.isSignedIn;
     } on NotAuthorizedServiceException catch (e) {
       safePrint('[AuthProvider] User not authorized, attempting sign up: ${e.message}');
-      return await _handleNewUserSignUp(phoneNumber);
+      return await _handleNewUserSignUp(email);
     } on UserNotFoundException catch (e) {
       safePrint('[AuthProvider] User not found, attempting sign up: ${e.message}');
-      return await _handleNewUserSignUp(phoneNumber);
+      return await _handleNewUserSignUp(email);
     } on AuthException catch (e) {
       _errorMessage = 'Auth Error: ${e.message}\nRecovery: ${e.recoverySuggestion}\nInner: ${e.underlyingException}';
       safePrint('[AuthProvider] SendOTP AuthException: $e');
@@ -182,13 +185,13 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Handle new user registration and then initiate OTP.
-  Future<bool> _handleNewUserSignUp(String phoneNumber) async {
+  Future<bool> _handleNewUserSignUp(String email) async {
     try {
-      safePrint('[AuthProvider] Attempting to create user via API: $phoneNumber');
+      safePrint('[AuthProvider] Attempting to create user via API: $email');
 
       final body = {
         'action': 'signup',
-        'phoneNumber': phoneNumber,
+        'email': email,
         'password': 'SurakshaPassword@123',
       };
 
@@ -209,7 +212,7 @@ class AuthProvider extends ChangeNotifier {
 
       // Now initiate sign-in for OTP (user is CONFIRMED by lambda)
       final result = await Amplify.Auth.signIn(
-        username: phoneNumber,
+        username: email,
         password: 'SurakshaPassword@123',
         options: SignInOptions(
           pluginOptions: const CognitoSignInPluginOptions(
@@ -314,6 +317,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reload user details from the database (e.g. after profile updates).
+  Future<void> refreshUser() async {
+    try {
+      final updatedUser = await _authService.getUserDetails();
+      if (updatedUser != null) {
+        _currentUser = updatedUser;
+        notifyListeners();
+      }
+    } catch (e) {
+      safePrint('[AuthProvider] Error refreshing user details: $e');
+    }
+  }
+
   Future<void> updateUserDetails(UserModel updatedUser) async {
     _isLoading = true;
     notifyListeners();
@@ -343,8 +359,131 @@ class AuthProvider extends ChangeNotifier {
 
   void cancelOtpFlow() {
     _isAwaitingOtp = false;
-    _tempPhoneNumber = null;
+    _tempEmail = null;
     notifyListeners();
+  }
+
+  /// Save the security question and answer for eKYC.
+  Future<bool> saveSecurityAnswer(String question, String answer) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      if (_currentUser == null) {
+        try {
+          final authUser = await Amplify.Auth.getCurrentUser();
+          final email = _tempEmail ?? await _authService.getUserEmail() ?? '';
+          _currentUser = UserModel(
+            uid: authUser.userId,
+            email: email,
+            phoneNumber: '',
+          );
+        } catch (e) {
+          _errorMessage = 'Could not retrieve user session. Please re-login.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+
+      _currentUser = UserModel(
+        uid: _currentUser!.uid,
+        email: _currentUser!.email,
+        phoneNumber: _currentUser!.phoneNumber,
+        firstName: _currentUser!.firstName,
+        lastName: _currentUser!.lastName,
+        dateOfBirth: _currentUser!.dateOfBirth,
+        gender: _currentUser!.gender,
+        bloodGroup: _currentUser!.bloodGroup,
+        profilePicUrl: _currentUser!.profilePicUrl,
+        isEkycVerified: _currentUser!.isEkycVerified,
+        securityQuestion: question,
+        securityAnswer: answer,
+      )..fcmTokens = _currentUser!.fcmTokens;
+
+      // Always save locally + trigger standard GraphQL sync
+      await _authService.saveUser(_currentUser!);
+
+      // Best-effort attempt dedicated eKYC GraphQL update
+      try {
+        await _ekycService.saveSecurityAnswer(_currentUser!.uid, question, answer);
+      } catch (e) {
+        safePrint('[AuthProvider] Cloud sync for security QA skipped/failed: $e');
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Error saving security answer: $e';
+      safePrint('[AuthProvider] saveSecurityAnswer error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Complete eKYC verification — marks user as verified.
+  Future<bool> completeEkyc() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      if (_currentUser == null) {
+        try {
+          final authUser = await Amplify.Auth.getCurrentUser();
+          final email = _tempEmail ?? await _authService.getUserEmail() ?? '';
+          _currentUser = UserModel(
+            uid: authUser.userId,
+            email: email,
+            phoneNumber: '',
+          );
+        } catch (e) {
+          _errorMessage = 'Could not retrieve user session. Please re-login.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+
+      _currentUser = UserModel(
+        uid: _currentUser!.uid,
+        email: _currentUser!.email,
+        phoneNumber: _currentUser!.phoneNumber,
+        firstName: _currentUser!.firstName,
+        lastName: _currentUser!.lastName,
+        dateOfBirth: _currentUser!.dateOfBirth,
+        gender: _currentUser!.gender,
+        bloodGroup: _currentUser!.bloodGroup,
+        profilePicUrl: _currentUser!.profilePicUrl,
+        isEkycVerified: true,
+        securityQuestion: _currentUser!.securityQuestion,
+        securityAnswer: _currentUser!.securityAnswer,
+      )..fcmTokens = _currentUser!.fcmTokens;
+
+      // Always save locally + trigger standard GraphQL sync
+      await _authService.saveUser(_currentUser!);
+      safePrint('[AuthProvider] eKYC completed successfully locally ✓');
+
+      // Best-effort attempt dedicated eKYC GraphQL update
+      try {
+        await _ekycService.markEkycVerified(_currentUser!.uid);
+      } catch (e) {
+        safePrint('[AuthProvider] Cloud sync for markEkycVerified skipped/failed: $e');
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = 'eKYC Error: $e';
+      safePrint('[AuthProvider] completeEkyc error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Generate a strong secure password for Cognito (user never sees this).

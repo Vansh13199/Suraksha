@@ -1,12 +1,16 @@
 type User @model @auth(rules: [{ allow: owner }]) {
   id: ID!
-  phoneNumber: String! @index(name: "byPhoneNumber", queryField: "userByPhoneNumber")
+  email: String! @index(name: "byEmail", queryField: "userByEmail")
+  phoneNumber: String @index(name: "byPhoneNumber", queryField: "userByPhoneNumber")
   firstName: String
   lastName: String
   dateOfBirth: AWSDate
   gender: String
   bloodGroup: String
   profilePicUrl: String
+  isEkycVerified: Boolean
+  securityQuestion: String
+  securityAnswer: String
   fcmTokens: [String]
 }
 
