@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'dart:convert';
+import 'dart:async';
 import '../../providers/ble_provider.dart';
 import '../../providers/sos_provider.dart';
 import '../../widgets/sos_button.dart';
@@ -9,12 +10,12 @@ import '../../widgets/info_card.dart';
 import '../../widgets/assistant_wrapper.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/push_notification_service.dart';
 import 'sos_active_screen.dart';
 import 'device_pairing_screen.dart';
 import 'emergency_contacts_screen.dart';
 import 'settings_screen.dart';
 import 'location_privacy_screen.dart';
-import 'in_app_live_location_screen.dart';
 import 'emergency_chat_screen.dart'; // Add Chat screen import
 import '../main.dart'; // Import to access pendingDeepLinkSessionId
 
@@ -27,11 +28,20 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   List<Map<String, dynamic>> _incomingSessions = [];
+  Timer? _sosPollTimer;
 
   @override
   void initState() {
     super.initState();
     _checkIncomingSos();
+    
+    // Sync FCM token to backend
+    AuthService().syncFcmToken();
+
+    // Poll for incoming emergencies every 15 seconds
+    _sosPollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _checkIncomingSos();
+    });
     
     // 🛰️ DEEP LINK CONSUMPTION: Safely handle Cold Start routing *after* Splash completes
     if (pendingDeepLinkSessionId != null && pendingDeepLinkSessionId!.isNotEmpty) {
@@ -40,20 +50,34 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       
       WidgetsBinding.instance.addPostFrameCallback((_) {
         safePrint('[HomeDashboard] Consuming Cold Start ID: $sessionIdToRoute');
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => EmergencyChatScreen(sessionId: sessionIdToRoute),
-          ),
-        );
+        if (sessionIdToRoute == 'SOS_ACTIVE_SCREEN') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/sos_active'),
+              builder: (_) => const SosActiveScreen(),
+            ),
+          );
+        } else {
+          PushNotificationService.navigateToEmergencyChat(sessionIdToRoute);
+        }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _sosPollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkIncomingSos() async {
     try {
       final userPhone = await AuthService().getUserPhone();
-      if (userPhone == null) return;
+      if (userPhone == null || userPhone.trim().isEmpty) return;
+
+      final userDigits = userPhone.replaceAll(RegExp(r'\D'), '');
+      final userLast10 = userDigits.length >= 10 ? userDigits.substring(userDigits.length - 10) : userDigits;
 
       // Query all active SOS sessions and filter client-side for authorizedViewers
       final query = '''
@@ -73,12 +97,34 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         final data = jsonDecode(res.data!);
         final items = List<Map<String, dynamic>>.from(data['listSOSSessions']['items'] ?? []);
         final targeted = items.where((s) {
+          // MUST be currently active
+          if (s['isActive'] != true) return false;
+
           final viewers = List<String>.from(s['authorizedViewers'] ?? []);
-          return viewers.contains(userPhone) && s['phoneNumber'] != userPhone;
+          final senderDigits = (s['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+          // Do not show user's own SOS in incoming list
+          if (senderDigits.endsWith(userLast10)) return false;
+          // Match viewer using last 10 digits
+          return viewers.any((v) {
+            final vDigits = v.replaceAll(RegExp(r'\D'), '');
+            return vDigits.endsWith(userLast10);
+          });
         }).toList();
 
+        // Sort so newest active session is first
+        targeted.sort((a, b) => (b['createdAt'] ?? '').toString().compareTo((a['createdAt'] ?? '').toString()));
+
+        // Deduplicate by sender so at most 1 banner per emergency contact is ever displayed
+        final uniqueBanners = <String, Map<String, dynamic>>{};
+        for (final session in targeted) {
+          final sender = session['phoneNumber'] ?? 'unknown';
+          if (!uniqueBanners.containsKey(sender)) {
+            uniqueBanners[sender] = session;
+          }
+        }
+
         if (mounted) {
-          setState(() => _incomingSessions = targeted);
+          setState(() => _incomingSessions = uniqueBanners.values.toList());
         }
       }
     } catch (e) {
@@ -88,12 +134,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _onSosTriggered(BuildContext context) {
     Provider.of<SosProvider>(context, listen: false).handleAppTriggeredSos();
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const SosActiveScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
     final bleProvider = Provider.of<BleProvider>(context);
+    final sosProvider = Provider.of<SosProvider>(context);
+
+    // Auto-navigate to SosActiveScreen if SOS is activated externally (e.g. from watch)
+    if (sosProvider.isSosActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/sos_active'),
+              builder: (_) => const SosActiveScreen(),
+            ),
+          );
+        }
+      });
+    }
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -220,7 +281,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => InAppLiveLocationScreen(sessionId: sessionId),
+            builder: (_) => EmergencyChatScreen(sessionId: sessionId),
           ),
         );
       },

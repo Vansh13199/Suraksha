@@ -1,9 +1,11 @@
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 
-// Force SES client to use ap-south-1 where the custom domain is verified
+// Force clients to use ap-south-1
 const sesClient = new SESClient({ region: 'ap-south-1' });
+const cognitoClient = new CognitoIdentityProviderClient({ region: 'ap-south-1' });
 
-// Verified SES sender email — update this to your verified domain email
+// Verified SES sender email
 const SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'mail-delivery@dev-vansh.in';
 
 /**
@@ -12,8 +14,28 @@ const SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'mail-delivery@dev-vansh.in
 exports.handler = async (event, context) => {
     let secretLoginCode;
 
-    // Check if email is provided
-    if (!event.request.userAttributes || !event.request.userAttributes.email) {
+    let userEmail = event.request.userAttributes && event.request.userAttributes.email;
+    
+    // If Cognito didn't pass the email attribute in the event, fetch it directly
+    if (!userEmail) {
+        try {
+            console.log(`[DEBUG] Fetching user attributes directly for ${event.userName}...`);
+            const command = new AdminGetUserCommand({
+                UserPoolId: event.userPoolId,
+                Username: event.userName
+            });
+            const response = await cognitoClient.send(command);
+            const emailAttr = response.UserAttributes.find(a => a.Name === 'email');
+            if (emailAttr) {
+                userEmail = emailAttr.Value;
+            }
+        } catch (e) {
+            console.error("Failed to fetch user attributes from Cognito:", e);
+        }
+    }
+
+    if (!userEmail) {
+        console.error("User email missing. Event:", JSON.stringify(event));
         throw new Error('User email missing');
     }
 
@@ -23,8 +45,6 @@ exports.handler = async (event, context) => {
     if (!customChallengeSession) {
         // Generate a new 6-digit OTP
         secretLoginCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-        const userEmail = event.request.userAttributes.email;
 
         // AWS SES Send Email Command
         const command = new SendEmailCommand({
@@ -63,14 +83,14 @@ exports.handler = async (event, context) => {
 
         try {
             await sesClient.send(command);
-            console.log("OTP email sent to:", userEmail);
+            console.log("OTP Email sent to:", userEmail);
         } catch (err) {
             console.error("Failed to send OTP via SES:", err);
             throw err; // Cognito will catch this
         }
 
     } else {
-        // Re-use code from previous attempt to avoid sending a new email for retry
+        // Re-use code from previous attempt
         try {
             const metadata = customChallengeSession.challengeMetadata || '';
             const match = metadata.match(/CODE-(\d*)/);
@@ -78,12 +98,12 @@ exports.handler = async (event, context) => {
         } catch (e) {
             secretLoginCode = Math.floor(100000 + Math.random() * 900000).toString();
         }
-        console.log(`[DEBUG] Re-using OTP: ${secretLoginCode} for ${event.request.userAttributes.email}`);
+        console.log(`[DEBUG] Re-using OTP: ${secretLoginCode} for ${userEmail}`);
     }
 
     event.response.publicChallengeParameters = {
-        email: event.request.userAttributes.email,
-        debugOtp: secretLoginCode,
+        email: userEmail,
+        debugOtp: secretLoginCode, // Included for debug/demo purposes
     };
 
     // Private parameters are checked by VerifyAuthChallengeResponse

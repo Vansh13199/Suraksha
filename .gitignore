@@ -142,3 +142,8 @@ service-account.json
 !esp_final/**/*.ino
 !esp_final/**/*.cpp
 !esp_final/**/*.h
+
+watch_os/
+*.apk
+*.zip
+suraksha-sosapi-prod-extracted/

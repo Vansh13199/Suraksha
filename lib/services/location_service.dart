@@ -28,7 +28,7 @@ class LocationService {
 
   Future<LocationData?> getCurrentLocation() async {
     try {
-      return await _location.getLocation();
+      return await _location.getLocation().timeout(const Duration(seconds: 4));
     } catch (e) {
       print("Location Error: $e");
       return null;

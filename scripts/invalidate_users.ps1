@@ -14,7 +14,7 @@
 # To DELETE users instead of disabling, uncomment the delete line below.
 # ========================================================================
 
-$UserPoolId = "ap-south-1_1TneTP053"
+$UserPoolId = "ap-south-1_IrCwWGqNy"
 $Region = "ap-south-1"
 
 Write-Host "========================================" -ForegroundColor Yellow

@@ -6,16 +6,16 @@ const amplifyconfig = '''{
             "awsAPIPlugin": {
                 "sosapi": {
                     "endpointType": "REST",
-                    "endpoint": "https://3argzpovmc.execute-api.ap-south-1.amazonaws.com/prod",
+                    "endpoint": "https://uuanokhji9.execute-api.ap-south-1.amazonaws.com/prod",
                     "region": "ap-south-1",
                     "authorizationType": "AWS_IAM"
                 },
                 "suraksha": {
                     "endpointType": "GraphQL",
-                    "endpoint": "https://ako4bdvs75bt7dylp7ztnyentu.appsync-api.ap-south-1.amazonaws.com/graphql",
+                    "endpoint": "https://3mulfjxwcrhwlkjvksifbi4qvu.appsync-api.ap-south-1.amazonaws.com/graphql",
                     "region": "ap-south-1",
                     "authorizationType": "AMAZON_COGNITO_USER_POOLS",
-                    "apiKey": "da2-ssfbvfwbgngnjdnuzsic6lpv3m"
+                    "apiKey": "da2-cve7m3e43vfzdau4plzmszbupq"
                 }
             }
         }
@@ -30,7 +30,7 @@ const amplifyconfig = '''{
                 },
                 "AppSync": {
                     "Default": {
-                        "ApiUrl": "https://ako4bdvs75bt7dylp7ztnyentu.appsync-api.ap-south-1.amazonaws.com/graphql",
+                        "ApiUrl": "https://3mulfjxwcrhwlkjvksifbi4qvu.appsync-api.ap-south-1.amazonaws.com/graphql",
                         "Region": "ap-south-1",
                         "AuthMode": "AMAZON_COGNITO_USER_POOLS",
                         "ClientDatabasePrefix": "suraksha_AMAZON_COGNITO_USER_POOLS"
@@ -39,15 +39,15 @@ const amplifyconfig = '''{
                 "CredentialsProvider": {
                     "CognitoIdentity": {
                         "Default": {
-                            "PoolId": "ap-south-1:7b878392-bba1-4ce2-a9c1-b047a90ab4e6",
+                            "PoolId": "ap-south-1:e26bc5c3-e7ce-4c41-8c1d-5635449ab8c1",
                             "Region": "ap-south-1"
                         }
                     }
                 },
                 "CognitoUserPool": {
                     "Default": {
-                        "PoolId": "ap-south-1_1TneTP053",
-                        "AppClientId": "unr0ff1qlhn56l5c4uigk5uer",
+                        "PoolId": "ap-south-1_IrCwWGqNy",
+                        "AppClientId": "56l4os172lbsgvk5cjn5u7c2d5",
                         "Region": "ap-south-1"
                     }
                 },
@@ -76,7 +76,7 @@ const amplifyconfig = '''{
                 },
                 "S3TransferUtility": {
                     "Default": {
-                        "Bucket": "suraksha-storage-prod7192e-prod",
+                        "Bucket": "suraksha-storage-prod-new",
                         "Region": "ap-south-1"
                     }
                 }
@@ -86,7 +86,7 @@ const amplifyconfig = '''{
     "storage": {
         "plugins": {
             "awsS3StoragePlugin": {
-                "bucket": "suraksha-storage-prod7192e-prod",
+                "bucket": "suraksha-storage-prod-new",
                 "region": "ap-south-1",
                 "defaultAccessLevel": "guest"
             }

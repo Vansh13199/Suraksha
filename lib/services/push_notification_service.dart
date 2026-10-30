@@ -3,15 +3,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:suraksha_plus/services/auth_service.dart';
 import '../main.dart'; // To access navigatorKey and flutterLocalNotificationsPlugin
 import '../screens/emergency_chat_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // If you're going to use other Firebase services in the background, such as Firestore,
-  // make sure you call `initializeApp` before using other Firebase services.
   await Firebase.initializeApp();
   safePrint("Handling a background message: ${message.messageId}");
 }
@@ -41,6 +38,20 @@ class PushNotificationService {
     );
     safePrint('[PushNotification] Permission status: ${settings.authorizationStatus}');
 
+    // Explicitly create the high-priority notification channel on Android
+    final androidImplementation = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    const AndroidNotificationChannel sosChannel = AndroidNotificationChannel(
+      'sos_push_alerts',
+      'SOS Push Alerts',
+      description: 'Push notifications for incoming SOS alerts from contacts',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+    await androidImplementation?.createNotificationChannel(sosChannel);
+
     // 2. Set Background Handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -58,13 +69,14 @@ class PushNotificationService {
        _handleNotificationTap(message);
     });
     
-    // Handle tap from terminated state
+    // Handle tap from terminated state (cold start)
     RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       final sessionId = _extractId(initialMessage);
       if (sessionId != null && sessionId.isNotEmpty) {
         pendingDeepLinkSessionId = sessionId;
         safePrint('[PushNotification] Cold Start FCM queued. ID: $pendingDeepLinkSessionId');
+        navigateToEmergencyChat(sessionId);
       }
     }
 
@@ -113,22 +125,32 @@ class PushNotificationService {
      final sessionId = _extractId(message) ?? '';
      safePrint("[PushNotification] Showing in-app alert (ID: $sessionId)");
      
-     // Show a high-priority local notification so the user sees it even in foreground
+     // Show a high-priority heads-up local notification
      const AndroidNotificationDetails androidSpec = AndroidNotificationDetails(
        'sos_push_alerts', 'SOS Push Alerts',
        channelDescription: 'Push notifications for incoming SOS alerts from contacts',
        importance: Importance.max,
        priority: Priority.high,
+       fullScreenIntent: true,
        color: Color(0xFFE53935),
        playSound: true,
        enableVibration: true,
+       category: AndroidNotificationCategory.alarm,
+       visibility: NotificationVisibility.public,
      );
-     const NotificationDetails platformSpec = NotificationDetails(android: androidSpec);
+     const NotificationDetails platformSpec = NotificationDetails(
+       android: androidSpec,
+       iOS: DarwinNotificationDetails(
+         presentAlert: true,
+         presentSound: true,
+         presentBadge: true,
+       ),
+     );
      
      await flutterLocalNotificationsPlugin.show(
        id: 200,
        title: message.notification?.title ?? '🚨 Emergency Alert',
-       body: message.notification?.body ?? 'A contact needs help!',
+       body: message.notification?.body ?? 'A contact needs help! Tap to track.',
        notificationDetails: platformSpec,
        payload: 'sos_session:$sessionId',
      );
@@ -140,24 +162,32 @@ class PushNotificationService {
     
     if (sessionId != null && sessionId.isNotEmpty) {
       safePrint('[PushNotification] SOS Alert tapped. Navigating to Chat (ID: $sessionId)...');
-      
-      // 🛰️ LIVE ROUTING: Safely queue the navigation to run on the next frame after the app wakes
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final navigator = navigatorKey.currentState;
-        if (navigator != null) {
-          safePrint('[PushNotification] Executing Live Push for ID: $sessionId');
-          navigator.push(
-            MaterialPageRoute(
-              builder: (_) => EmergencyChatScreen(sessionId: sessionId),
-            ),
-          );
-        } else {
-          safePrint('[PushNotification] CRITICAL ERROR: Navigator state is null during Live Push!');
-        }
-      });
+      navigateToEmergencyChat(sessionId);
     } else if (message.data['type'] == 'SOS_ALERT') {
       safePrint('[PushNotification] ERROR: Found SOS alert but no sessionId could be extracted!');
     }
+  }
+
+  /// Global reliable navigator that retries if NavigatorState is initializing
+  static void navigateToEmergencyChat(String sessionId) {
+    safePrint('[PushNotification] navigateToEmergencyChat requested for ID: $sessionId');
+    void tryPush(int attempts) {
+      final nav = navigatorKey.currentState;
+      if (nav != null) {
+        safePrint('[PushNotification] Live Navigator Push executing for ID: $sessionId');
+        nav.push(
+          MaterialPageRoute(
+            settings: RouteSettings(name: '/emergency_chat', arguments: sessionId),
+            builder: (_) => EmergencyChatScreen(sessionId: sessionId),
+          ),
+        );
+      } else if (attempts < 15) {
+        Future.delayed(const Duration(milliseconds: 200), () => tryPush(attempts + 1));
+      } else {
+        safePrint('[PushNotification] ERROR: Navigator null after 15 attempts!');
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => tryPush(0));
   }
 
   Future<String?> getToken() async {

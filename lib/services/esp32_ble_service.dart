@@ -22,6 +22,7 @@ class Esp32BleService {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _rxCharacteristic; // ESP32 TX -> App RX (Notify)
   BluetoothCharacteristic? _txCharacteristic; // App TX -> ESP32 RX (Write)
+  StreamSubscription? _rxSubscription;
   StreamSubscription? _scanSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   
@@ -124,7 +125,8 @@ class Esp32BleService {
            _rxCharacteristic = characteristic;
            // Enable notifications
            await _rxCharacteristic!.setNotifyValue(true);
-             _rxCharacteristic!.onValueReceived.listen((value) {
+            await _rxSubscription?.cancel();
+            _rxSubscription = _rxCharacteristic!.onValueReceived.listen((value) {
                // Handle incoming data
                final String data = String.fromCharCodes(value);
                print("Received from ESP32: $data");

@@ -12,9 +12,13 @@
     <!-- Bluetooth permissions (for BLE) -->
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
+    
+    <!-- Full-screen emergency alert & overlay permissions -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     
     <!-- For foreground service (background location updates) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -51,6 +55,8 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:taskAffinity=""
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -78,6 +84,11 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value=""/>
+            
+        <!-- FCM Default Notification Channel for High Priority Alerts -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="sos_push_alerts"/>
             
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"

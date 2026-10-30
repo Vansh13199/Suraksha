@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:amplify_flutter/amplify_flutter.dart' hide AuthProvider;
+import 'dart:convert';
 import '../../providers/auth_provider.dart';
 import '../../providers/modes_provider.dart';
 import '../../providers/assistant_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/auth_service.dart';
 import 'splash_screen.dart';
 import 'location_privacy_screen.dart';
 import 'emergency_chat_screen.dart';
@@ -43,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
                    ),
                    Consumer<AuthProvider>(
                      builder: (context, auth, _) {
-                       final isVerified = auth.isEkycVerified;
+                       final isVerified = auth.currentUser?.isEkycVerified ?? false;
                        return _buildSettingsTileWithStatus(
                          context,
                          icon: Icons.verified_user_outlined,
@@ -200,8 +203,16 @@ class SettingsScreen extends StatelessWidget {
                     context,
                     icon: Icons.chat_bubble_outline_rounded,
                     title: "Open Emergency Chat",
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyChatScreen()));
+                    onTap: () async {
+                      final activeSessionId = await _findActiveEmergencySessionId();
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EmergencyChatScreen(sessionId: activeSessionId),
+                          ),
+                        );
+                      }
                     },
                   ),
                   const Padding(
@@ -334,6 +345,7 @@ class SettingsScreen extends StatelessWidget {
       final bool canAuthenticateWithBiometrics = await localAuth.canCheckBiometrics;
       final bool canAuthenticate = canAuthenticateWithBiometrics || await localAuth.isDeviceSupported();
 
+      if (!context.mounted) return;
       if (!canAuthenticate) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Biometric authentication is not supported on this device.')),
@@ -434,5 +446,48 @@ class SettingsScreen extends StatelessWidget {
       trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.textGrey),
       onTap: onTap,
     );
+  }
+
+  Future<String?> _findActiveEmergencySessionId() async {
+    try {
+      final userPhone = await AuthService().getUserPhone();
+      if (userPhone == null || userPhone.trim().isEmpty) return null;
+      final userDigits = userPhone.replaceAll(RegExp(r'\D'), '');
+      final userLast10 = userDigits.length >= 10 ? userDigits.substring(userDigits.length - 10) : userDigits;
+
+      const query = '''
+        query ListSessions {
+          listSOSSessions(limit: 50) {
+            items {
+              id phoneNumber isActive authorizedViewers createdAt
+            }
+          }
+        }
+      ''';
+      final res = await Amplify.API.query(
+        request: GraphQLRequest<String>(document: query),
+      ).response;
+
+      if (res.data != null) {
+        final data = jsonDecode(res.data!);
+        final items = List<Map<String, dynamic>>.from(data['listSOSSessions']['items'] ?? []);
+
+        final matching = items.where((s) {
+          final viewers = List<String>.from(s['authorizedViewers'] ?? []);
+          final senderDigits = (s['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+          if (senderDigits.endsWith(userLast10)) return false;
+          return viewers.any((v) => v.replaceAll(RegExp(r'\D'), '').endsWith(userLast10));
+        }).toList();
+
+        if (matching.isNotEmpty) {
+          matching.sort((a, b) => (b['createdAt'] ?? '').toString().compareTo((a['createdAt'] ?? '').toString()));
+          final chosen = matching.firstWhere((s) => s['isActive'] == true, orElse: () => matching.first);
+          return chosen['id'];
+        }
+      }
+    } catch (e) {
+      safePrint('[Settings] Error checking active emergency: $e');
+    }
+    return null;
   }
 }

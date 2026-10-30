@@ -93,7 +93,7 @@ app.post('/sos', async function(req, res) {
     if (action === 'signup') {
       // Find the UserPoolId from environment variables
       let userPoolId = process.env.AUTH_USERPOOLID || process.env[Object.keys(process.env).find(k => k.endsWith('_USERPOOLID'))];
-      if (!userPoolId) { userPoolId = 'ap-south-1_1TneTP053'; }
+      if (!userPoolId) { userPoolId = 'ap-south-1_IrCwWGqNy'; }
 
       // Use email as the Cognito username
       const signupEmail = email || phoneNumber; // fallback for backward compat
@@ -135,7 +135,7 @@ app.post('/sos', async function(req, res) {
       // Try to backup in DynamoDB SOSSession table for resilience across Lambda container freezes
       try {
         const env = process.env.ENV || 'prod';
-        const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${env}`;
+        const sosTable = process.env.SOS_TABLE || `SOSSession-newprod-${env}`;
         await ddbDocClient.send(new PutCommand({
           TableName: sosTable,
           Item: {
@@ -209,7 +209,7 @@ app.post('/sos', async function(req, res) {
         // 2. Fallback check in DynamoDB
         try {
           const env = process.env.ENV || 'prod';
-          const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${env}`;
+          const sosTable = process.env.SOS_TABLE || `SOSSession-newprod-${env}`;
           const getRes = await ddbDocClient.send(new GetCommand({
             TableName: sosTable,
             Key: { id: `EKYC_${email}` }
@@ -238,7 +238,7 @@ app.post('/sos', async function(req, res) {
         // Clean up from DynamoDB best-effort
         try {
           const env = process.env.ENV || 'prod';
-          const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${env}`;
+          const sosTable = process.env.SOS_TABLE || `SOSSession-newprod-${env}`;
           await ddbDocClient.send(new DeleteCommand({ TableName: sosTable, Key: { id: `EKYC_${email}` } }));
         } catch (_) {}
 
@@ -275,9 +275,9 @@ app.post('/sos/trigger', async function(req, res) {
     }
 
     // Table names from environment or hardcoded fallback
-    let userTable = process.env.USER_TABLE || `User-vkqykgibazglvo3pdfkgqgetfu-${process.env.ENV}`;
-    let contactTable = process.env.CONTACT_TABLE || `EmergencyContact-vkqykgibazglvo3pdfkgqgetfu-${process.env.ENV}`;
-    const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${process.env.ENV}`;
+    let userTable = process.env.USER_TABLE || `User-newprod-${process.env.ENV}`;
+    let contactTable = process.env.CONTACT_TABLE || `EmergencyContact-newprod-${process.env.ENV}`;
+    const sosTable = process.env.SOS_TABLE || `SOSSession-newprod-${process.env.ENV}`;
 
     console.log(`[SOS-ENVIRONMENT] UserTable: ${userTable}, Env: ${process.env.ENV}`);
 
@@ -390,7 +390,7 @@ app.post('/sos/stop', async function(req, res) {
       return res.status(400).json({ error: "Missing sessionId" });
     }
 
-    const sosTable = process.env.SOS_TABLE || `SOSSession-vkqykgibazglvo3pdfkgqgetfu-${process.env.ENV}`;
+    const sosTable = process.env.SOS_TABLE || `SOSSession-newprod-${process.env.ENV}`;
     const { UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 
     await ddbDocClient.send(new UpdateCommand({

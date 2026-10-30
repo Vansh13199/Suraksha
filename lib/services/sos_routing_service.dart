@@ -78,11 +78,12 @@ class SosRoutingService {
     }
 
     // 5. If ESP32 SOS is Connected AND Phone Internet is NOT Connected AND ESP32 GPS is NOT Connected:
-    //    → (Not explicitly defined in prompt, but logically matches Rule 1 or fails. Falling back to invalid)
+    //    → Attempt SOS via ESP eSIM without GPS coordinates rather than silently aborting.
+    //    → This ensures watch-triggered SOS is never completely dropped.
     return SosRouteDecision(
-      sender: SosSender.INVALID,
-      locationSource: SosLocationSource.INVALID,
-      warningMessage: "No Internet (Phone/ESP) and No GPS. SOS Cancelled.",
+      sender: SosSender.ESP_ESIM,
+      locationSource: SosLocationSource.NONE,
+      warningMessage: "No phone internet and no GPS. SOS sent via ESP without location.",
     );
   }
 

@@ -29,7 +29,7 @@ class GeminiAssistantService {
   // 🔑 PASTE YOUR GROQ API KEY BELOW
   // Get one free at: https://console.groq.com/keys
   // =====================================================
-  static const String _apiKey = 'YOUR_GROQ_API_KEY_HERE';
+  static const String _apiKey = String.fromEnvironment('GROQ_API_KEY', defaultValue: 'YOUR_GROQ_API_KEY_HERE');
 
   // Groq models in order of preference (fastest first)
   // Free tier: 30 RPM, 14,400 RPD

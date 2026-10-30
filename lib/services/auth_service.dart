@@ -62,9 +62,19 @@ class AuthService {
     return null;
   }
 
-  /// Get the current user's phone number as verified in Cognito attributes.
+  /// Get the current user's phone number as verified in Cognito attributes or user profile.
   Future<String?> getUserPhone() async {
-    return _getPhoneFromCognito();
+    final cognitoPhone = await _getPhoneFromCognito();
+    if (cognitoPhone != null && cognitoPhone.trim().isNotEmpty) {
+      return cognitoPhone.trim();
+    }
+    try {
+      final user = await getUserDetails();
+      if (user != null && user.phoneNumber.trim().isNotEmpty) {
+        return user.phoneNumber.trim();
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Get the current user's email as verified in Cognito attributes.

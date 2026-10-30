@@ -3,8 +3,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const USER_TABLE = process.env.USER_TABLE_NAME;
-const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
+const USER_TABLE = process.env.USER_TABLE_NAME || 'User-newprod-prod';
 const KEY_PATH = path.join(__dirname, 'service-account.json');
 
 /**
@@ -44,11 +43,6 @@ async function getAccessToken(key) {
 exports.handler = async (event) => {
   console.log('--- 🚀 STARTING ZERO-DEP SOS NOTIFIER ---');
 
-  if (!USER_TABLE || !PROJECT_ID) {
-    console.error('❌ ERROR: Missing Configuration.');
-    return { statusCode: 500 };
-  }
-
   // Load Key
   let keyContent;
   try {
@@ -57,6 +51,9 @@ exports.handler = async (event) => {
     console.error('❌ ERROR: Failed to read service-account.json:', e.message);
     return { statusCode: 500 };
   }
+
+  const projectId = keyContent.project_id || process.env.FIREBASE_PROJECT_ID || 'surskah-maps';
+  console.log(`🎯 Using Firebase Project ID: ${projectId}`);
 
   // Auth Pre-fetch
   let accessToken;
@@ -110,7 +107,7 @@ exports.handler = async (event) => {
           console.log(`📱 Sending pushes to ${tokens.length} devices...`);
 
           for (const token of tokens) {
-            const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+            const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
             const payload = {
               message: {
                 token: token,
@@ -124,7 +121,15 @@ exports.handler = async (event) => {
                   session_id: sessionId,
                   type: 'SOS_ALERT' 
                 },
-                android: { priority: 'high' }
+                android: { 
+                  priority: 'HIGH',
+                  notification: {
+                    channel_id: 'sos_push_alerts',
+                    notification_priority: 'PRIORITY_MAX',
+                    default_sound: true,
+                    default_vibrate_timings: true
+                  }
+                }
               }
             };
 
@@ -137,6 +142,10 @@ exports.handler = async (event) => {
               body: JSON.stringify(payload)
             });
             console.log(`🚀 FCM Response for ${rawPhone}: ${response.status}`);
+            if (!response.ok) {
+              const errText = await response.text();
+              console.error(`❌ FCM Error for ${rawPhone}: ${errText}`);
+            }
           }
         } else {
           console.log(`ℹ️ No contact registered for ${rawPhone}`);

@@ -33,7 +33,9 @@ class _SosActiveScreenState extends State<SosActiveScreen> with SingleTickerProv
 
   void _stopSos(BuildContext context) {
     Provider.of<SosProvider>(context, listen: false).deactivateSos();
-    Navigator.pop(context);
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
   }
 
   @override

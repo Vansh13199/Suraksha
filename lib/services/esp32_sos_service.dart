@@ -4,6 +4,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../core/constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
+import 'location_service.dart';
 
 class Esp32SosService {
   // Singleton pattern
@@ -16,10 +17,15 @@ class Esp32SosService {
   Esp32SosService._internal();
 
   final AuthService _authService = AuthService();
+  final LocationService _locationService = LocationService();
+  Timer? _gpsForwardTimer;
 
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _rxCharacteristic; // ESP32 TX -> App RX (Notify)
   BluetoothCharacteristic? _txCharacteristic; // App TX -> ESP32 RX (Write)
+  StreamSubscription? _rxSubscription;
+  DateTime? _lastSosStartTriggerTime;
+  DateTime? _lastSosStopTriggerTime;
   StreamSubscription? _scanSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   
@@ -110,8 +116,18 @@ class Esp32SosService {
       _connectionSubscription = device.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
           _connectedDevice = null;
+          _rxSubscription?.cancel();
+          _rxSubscription = null;
           _connectionStateController.add(false);
-          print("[SOS Service] Device Disconnected.");
+          _stopGpsForwarding();
+          print("[SOS Service] Device Disconnected. Will attempt auto-reconnect...");
+          Future.delayed(const Duration(seconds: 3), () async {
+            final p = await SharedPreferences.getInstance();
+            final savedId = p.getString(keyPairedSosDeviceId);
+            if (savedId != null && _connectedDevice == null) {
+              _tryAutoConnect(savedId);
+            }
+          });
         }
       });
       
@@ -125,6 +141,9 @@ class Esp32SosService {
         print("[SOS Service] Syncing user identity: $phone");
         await sendData("SET_PHONE:$phone");
       }
+
+      // --- START GPS FORWARDING TO ESP32 ---
+      _startGpsForwarding();
       
     } catch (e) {
       print("[SOS Service] Connection Error: $e");
@@ -149,20 +168,33 @@ class Esp32SosService {
            await _rxCharacteristic!.setNotifyValue(true);
            print("[SOS Service] >>> Notifications ENABLED on RX");
            
-           _rxCharacteristic!.onValueReceived.listen((value) {
-               final String data = String.fromCharCodes(value);
-               print("[SOS Service] <<< Rx from ESP: '$data'");
-               
-               // SOS trigger — must match exactly to avoid SOS:STOP re-triggering
-               if (data.trim() == "SOS:START") {
-                 print("[SOS Service] !!! SOS TRIGGERED from ESP32");
-                 _sosTriggerController.add(true);
-               } else if (data.trim() == "SOS:STOP") {
-                 print("[SOS Service] !!! SOS STOP received from ESP32");
-                 _sosTriggerController.add(false);
-               }
+           await _rxSubscription?.cancel();
+           _rxSubscription = _rxCharacteristic!.onValueReceived.listen((value) {
+                final String data = String.fromCharCodes(value);
+                print("[SOS Service] <<< Rx from ESP: '$data'");
+                
+                // SOS trigger - debounce rapid packets within 1.5s
+                if (data.contains("SOS:START") && !data.contains("SOS:STOP")) {
+                  final now = DateTime.now();
+                  if (_lastSosStartTriggerTime == null || now.difference(_lastSosStartTriggerTime!) > const Duration(milliseconds: 1500)) {
+                    _lastSosStartTriggerTime = now;
+                    _lastSosStopTriggerTime = null; // Clear stop timer so stop is allowed immediately
+                    print("[SOS Service] !!! SOS TRIGGERED from ESP32");
+                    _sosTriggerController.add(true);
+                  } else {
+                    print("[SOS Service] Debouncing duplicate SOS:START from ESP32");
+                  }
+                } else if (data.contains("SOS:STOP")) {
+                  final now = DateTime.now();
+                  if (_lastSosStopTriggerTime == null || now.difference(_lastSosStopTriggerTime!) > const Duration(milliseconds: 1500)) {
+                    _lastSosStopTriggerTime = now;
+                    _lastSosStartTriggerTime = null; // Clear start timer so new session can be started immediately
+                    print("[SOS Service] !!! SOS STOP received from ESP32");
+                    _sosTriggerController.add(false);
+                  }
+                }
 
-               // Activity Mode signals
+                // Activity Mode signals
                if (data.contains("ACTIVITY:ENABLED")) {
                  print("[SOS Service] >>> Activity Mode ENABLED by ESP32");
                  _activityModeController.add(true);
@@ -231,10 +263,66 @@ class Esp32SosService {
   }
 
   Future<void> _tryAutoConnect(String deviceId) async {
-    await startScan();
+    print("[SOS Service] Auto-connect scanning for paired device: $deviceId");
+    await startScan(onScanResults: (results) {
+      for (ScanResult result in results) {
+        final name = result.device.platformName.isNotEmpty 
+            ? result.device.platformName 
+            : result.advertisementData.advName;
+        if (result.device.remoteId.str == deviceId || name == "Suraksha_Watch" || name == "Suraksha_GPS") {
+          print("[SOS Service] Auto-connecting to paired device: $name (${result.device.remoteId.str})");
+          stopScan();
+          connectToDevice(result.device);
+          break;
+        }
+      }
+    });
+  }
+
+  // ─── GPS Forwarding ─────────────────────────────────────────────
+  void _startGpsForwarding() {
+    _stopGpsForwarding(); // Cancel any existing timer
+    print("[SOS Service] Starting GPS forwarding to ESP32");
+
+    // Request location permission (no-op if already granted)
+    _locationService.requestPermissions();
+
+    // Send GPS immediately once, then every 10 seconds
+    _sendGpsToEsp();
+    _gpsForwardTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _sendGpsToEsp(),
+    );
+  }
+
+  void _stopGpsForwarding() {
+    _gpsForwardTimer?.cancel();
+    _gpsForwardTimer = null;
+    print("[SOS Service] GPS forwarding stopped");
+  }
+
+  Future<void> _sendGpsToEsp() async {
+    try {
+      final location = await _locationService.getCurrentLocation();
+      if (location == null || location.latitude == null || location.longitude == null) {
+        print("[SOS Service] GPS: no fix yet, skipping");
+        return;
+      }
+
+      final lat = location.latitude!.toStringAsFixed(7);
+      final lon = location.longitude!.toStringAsFixed(7);
+      final message = "LAT:$lat,LON:$lon";
+      await sendData(message);
+      print("[SOS Service] 📍 Forwarded GPS → ESP32: $message");
+    } catch (e) {
+      print("[SOS Service] GPS forwarding error: $e");
+    }
   }
 
   Future<void> disconnect() async {
+    _stopGpsForwarding();
+    _rxSubscription?.cancel();
+    _rxSubscription = null;
     if (_connectedDevice != null) {
       await _connectedDevice!.disconnect();
       _connectedDevice = null;

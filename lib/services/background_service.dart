@@ -3,10 +3,15 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:amplify_api/amplify_api.dart';
+import 'package:amplify_storage_s3/amplify_storage_s3.dart';
+import '../amplifyconfiguration.dart';
 import 'esp32_sos_service.dart';
+import 'emergency_service.dart';
 import '../providers/sos_provider.dart';
 
 Future<void> initializeBackgroundService() async {
@@ -73,7 +78,22 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+
+  // Configure Amplify in background isolate so AWS GraphQL / SOS sessions work
+  try {
+    final authPlugin = AmplifyAuthCognito();
+    final apiPlugin = AmplifyAPI();
+    final storagePlugin = AmplifyStorageS3();
+    await Amplify.addPlugins([authPlugin, apiPlugin, storagePlugin]);
+    await Amplify.configure(amplifyconfig);
+    safePrint('[BACKGROUND] Amplify configured successfully');
+  } on AmplifyAlreadyConfiguredException {
+    safePrint('[BACKGROUND] Amplify already configured');
+  } catch (e) {
+    safePrint('[BACKGROUND] Amplify config status: $e');
+  }
 
   if (service is AndroidServiceInstance) {
     service.setForegroundNotificationInfo(
@@ -92,6 +112,24 @@ void onStart(ServiceInstance service) async {
 
   service.on('stopService').listen((event) {
     service.stopSelf();
+  });
+
+  // ========== SYNC SOS STATE VIA IPC FROM UI ISOLATE ==========
+  service.on('sos_status_changed').listen((event) async {
+    if (event != null) {
+      final bool isActive = event['isActive'] ?? false;
+      final String? sessionId = event['sessionId'];
+      print('[BACKGROUND] Received IPC sos_status_changed: isActive=$isActive, sessionId=$sessionId');
+      if (!isActive) {
+        if (EmergencyService().isSosActive) {
+          await EmergencyService().deactivateSos(fromIpc: true);
+        } else {
+          EmergencyService().setSosActiveState(false);
+        }
+      } else {
+        EmergencyService().setSosActiveState(true, sessionId: sessionId);
+      }
+    }
   });
 
   // ========== INIT BLE IN BACKGROUND ISOLATE ==========

@@ -1,0 +1,212 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+type EmergencyContact @aws_cognito_user_pools {
+  createdAt: AWSDateTime
+  id: ID!
+  name: String!
+  owner: String
+  phoneNumber: String!
+  relationship: String
+  updatedAt: AWSDateTime
+  userId: ID!
+}
+
+type EmergencyContactConnection {
+  items: [EmergencyContact]
+  nextToken: String
+}
+
+type Mutation {
+  createEmergencyContact(input: CreateEmergencyContactInput!): EmergencyContact
+  createSOSSession(input: CreateSOSSessionInput!): SOSSession @aws_api_key @aws_cognito_user_pools
+  createUser(input: CreateUserInput!): User
+  deleteEmergencyContact(input: DeleteEmergencyContactInput!): EmergencyContact
+  deleteSOSSession(input: DeleteSOSSessionInput!): SOSSession @aws_api_key @aws_cognito_user_pools
+  deleteUser(input: DeleteUserInput!): User
+  updateEmergencyContact(input: UpdateEmergencyContactInput!): EmergencyContact
+  updateSOSSession(input: UpdateSOSSessionInput!): SOSSession @aws_api_key @aws_cognito_user_pools
+  updateUser(input: UpdateUserInput!): User
+}
+
+type Query {
+  getEmergencyContact(id: ID!): EmergencyContact
+  getSOSSession(id: ID!): SOSSession @aws_api_key @aws_cognito_user_pools
+  getUser(id: ID!): User
+  listEmergencyContacts(filter: TableEmergencyContactFilterInput, limit: Int, nextToken: String): EmergencyContactConnection
+  listSOSSessions(filter: TableSOSSessionFilterInput, limit: Int, nextToken: String): SOSSessionConnection @aws_api_key @aws_cognito_user_pools
+  listUsers(filter: TableUserFilterInput, limit: Int, nextToken: String): UserConnection
+  userByEmail(email: String!): UserConnection
+  userByPhoneNumber(phoneNumber: String!): UserConnection
+}
+
+type SOSSession @aws_api_key @aws_cognito_user_pools {
+  authorizedViewers: [String]
+  createdAt: AWSDateTime
+  id: ID!
+  isActive: Boolean!
+  latitude: Float!
+  longitude: Float!
+  owner: String
+  phoneNumber: String!
+  triggerType: String
+  updatedAt: AWSDateTime
+}
+
+type SOSSessionConnection @aws_api_key @aws_cognito_user_pools {
+  items: [SOSSession]
+  nextToken: String
+}
+
+type Subscription {
+  onCreateSOSSession: SOSSession @aws_api_key @aws_cognito_user_pools @aws_subscribe(mutations : ["createSOSSession"])
+  onDeleteSOSSession: SOSSession @aws_api_key @aws_cognito_user_pools @aws_subscribe(mutations : ["deleteSOSSession"])
+  onUpdateSOSSession: SOSSession @aws_api_key @aws_cognito_user_pools @aws_subscribe(mutations : ["updateSOSSession"])
+}
+
+type User @aws_cognito_user_pools {
+  bloodGroup: String
+  createdAt: AWSDateTime
+  dateOfBirth: AWSDate
+  email: String!
+  fcmTokens: [String]
+  firstName: String
+  gender: String
+  id: ID!
+  isDeactivated: Boolean
+  isEkycVerified: Boolean
+  lastName: String
+  owner: String
+  phoneNumber: String
+  profilePicUrl: String
+  securityAnswer: String
+  securityQuestion: String
+  updatedAt: AWSDateTime
+}
+
+type UserConnection {
+  items: [User]
+  nextToken: String
+}
+
+input CreateEmergencyContactInput {
+  id: ID
+  name: String!
+  owner: String
+  phoneNumber: String!
+  relationship: String
+  userId: ID!
+}
+
+input CreateSOSSessionInput {
+  authorizedViewers: [String]
+  id: ID
+  isActive: Boolean!
+  latitude: Float!
+  longitude: Float!
+  owner: String
+  phoneNumber: String!
+  triggerType: String
+}
+
+input CreateUserInput {
+  bloodGroup: String
+  dateOfBirth: AWSDate
+  email: String!
+  fcmTokens: [String]
+  firstName: String
+  gender: String
+  id: ID
+  isDeactivated: Boolean
+  isEkycVerified: Boolean
+  lastName: String
+  owner: String
+  phoneNumber: String
+  profilePicUrl: String
+  securityAnswer: String
+  securityQuestion: String
+}
+
+input DeleteEmergencyContactInput {
+  id: ID!
+}
+
+input DeleteSOSSessionInput {
+  id: ID!
+}
+
+input DeleteUserInput {
+  id: ID!
+}
+
+input TableBooleanFilterInput {
+  eq: Boolean
+  ne: Boolean
+}
+
+input TableEmergencyContactFilterInput {
+  id: TableIDFilterInput
+  userId: TableIDFilterInput
+}
+
+input TableIDFilterInput {
+  eq: ID
+  ne: ID
+}
+
+input TableSOSSessionFilterInput {
+  id: TableIDFilterInput
+  isActive: TableBooleanFilterInput
+  phoneNumber: TableStringFilterInput
+}
+
+input TableStringFilterInput {
+  beginsWith: String
+  contains: String
+  eq: String
+  ne: String
+}
+
+input TableUserFilterInput {
+  email: TableStringFilterInput
+  id: TableIDFilterInput
+  phoneNumber: TableStringFilterInput
+}
+
+input UpdateEmergencyContactInput {
+  id: ID!
+  name: String
+  phoneNumber: String
+  relationship: String
+  userId: ID
+}
+
+input UpdateSOSSessionInput {
+  authorizedViewers: [String]
+  id: ID!
+  isActive: Boolean
+  latitude: Float
+  longitude: Float
+  phoneNumber: String
+  triggerType: String
+}
+
+input UpdateUserInput {
+  bloodGroup: String
+  dateOfBirth: AWSDate
+  email: String
+  fcmTokens: [String]
+  firstName: String
+  gender: String
+  id: ID!
+  isDeactivated: Boolean
+  isEkycVerified: Boolean
+  lastName: String
+  phoneNumber: String
+  profilePicUrl: String
+  securityAnswer: String
+  securityQuestion: String
+}

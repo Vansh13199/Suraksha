@@ -310,6 +310,9 @@ class AuthProvider extends ChangeNotifier {
     try {
       _currentUser = await _authService.getUserDetails();
       safePrint('[AuthProvider] _fetchUserDetails: currentUser=${_currentUser?.firstName ?? "NULL"}');
+      if (_currentUser != null) {
+        _authService.syncFcmToken();
+      }
     } catch (e) {
       safePrint('[AuthProvider] Error fetching user details: $e');
     }
@@ -323,6 +326,7 @@ class AuthProvider extends ChangeNotifier {
       final updatedUser = await _authService.getUserDetails();
       if (updatedUser != null) {
         _currentUser = updatedUser;
+        _authService.syncFcmToken();
         notifyListeners();
       }
     } catch (e) {

@@ -16,19 +16,19 @@ import 'providers/modes_provider.dart';
 import 'providers/assistant_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/emergency_chat_screen.dart';
-import 'screens/in_app_live_location_screen.dart';
 import 'screens/home_dashboard_screen.dart';
 import 'screens/register_email_screen.dart';
 import 'screens/user_details_screen.dart';
 import 'screens/ekyc_verification_screen.dart';
-import 'screens/in_app_live_location_screen.dart';
+import 'screens/sos_active_screen.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'services/background_service.dart';
 import 'services/auth_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/battery_monitor_service.dart';
+import 'services/emergency_service.dart';
 import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 
 
@@ -133,6 +133,7 @@ class SurakshaPlusApp extends StatefulWidget {
 
 class _SurakshaPlusAppState extends State<SurakshaPlusApp> {
   StreamSubscription? _sub;
+  StreamSubscription? _ipcSub;
 
   @override
   void initState() {
@@ -140,6 +141,45 @@ class _SurakshaPlusAppState extends State<SurakshaPlusApp> {
     _handleColdStart();
     _sub = selectNotificationStream.stream.listen((String? payload) {
       _routePayload(payload);
+    });
+
+    // Listen to IPC events from Background Service when SOS triggers while app is in background
+    _ipcSub = FlutterBackgroundService().on('sos_status_changed').listen((event) {
+      if (event != null) {
+        final bool isActive = event['isActive'] ?? false;
+        final String? sessionId = event['sessionId'];
+        safePrint('[Main] IPC Received sos_status_changed: isActive=$isActive, sessionId=$sessionId');
+
+        // Keep UI isolate's EmergencyService synchronized
+        EmergencyService().setSosActiveState(isActive, sessionId: sessionId);
+
+        if (isActive) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final navState = navigatorKey.currentState;
+            if (navState != null) {
+              bool alreadyOnScreen = false;
+              navState.popUntil((route) {
+                if (route.settings.name == '/sos_active') {
+                  alreadyOnScreen = true;
+                }
+                return true;
+              });
+              if (!alreadyOnScreen) {
+                navState.push(
+                  MaterialPageRoute(
+                    settings: const RouteSettings(name: '/sos_active'),
+                    builder: (_) => const SosActiveScreen(),
+                  ),
+                );
+              }
+            }
+          });
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            navigatorKey.currentState?.popUntil((route) => route.settings.name != '/sos_active');
+          });
+        }
+      }
     });
   }
 
@@ -151,6 +191,10 @@ class _SurakshaPlusAppState extends State<SurakshaPlusApp> {
         // Queue the ID instead of fighting the SplashScreen race condition
         pendingDeepLinkSessionId = payload.replaceFirst('sos_session:', '');
         safePrint('[Main] Cold Start Local Notification queued. ID: $pendingDeepLinkSessionId');
+        PushNotificationService.navigateToEmergencyChat(pendingDeepLinkSessionId!);
+      } else if (payload == 'sos_active') {
+        pendingDeepLinkSessionId = 'SOS_ACTIVE_SCREEN';
+        safePrint('[Main] Cold Start SOS Active Notification queued.');
       }
     }
   }
@@ -159,33 +203,41 @@ class _SurakshaPlusAppState extends State<SurakshaPlusApp> {
     safePrint('[Main] Routing with payload: $payload');
     if (payload == null) return;
 
-    if (payload == 'emergency_chat') {
+    if (payload == 'sos_active') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final navState = navigatorKey.currentState;
+        if (navState != null) {
+          bool alreadyOnScreen = false;
+          navState.popUntil((route) {
+            if (route.settings.name == '/sos_active') {
+              alreadyOnScreen = true;
+            }
+            return true;
+          });
+          if (!alreadyOnScreen) {
+            navState.push(
+              MaterialPageRoute(
+                settings: const RouteSettings(name: '/sos_active'),
+                builder: (_) => const SosActiveScreen(),
+              ),
+            );
+          }
+        }
+      });
+    } else if (payload == 'emergency_chat') {
       navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => const EmergencyChatScreen()),
       );
     } else if (payload.startsWith('sos_session:')) {
       final sessionId = payload.replaceFirst('sos_session:', '');
-      
-      // 🛰️ LIVE ROUTING: Safely queue the navigation to run on the next frame after the app wakes
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final navigator = navigatorKey.currentState;
-        if (navigator != null) {
-          safePrint('[Main] Executing Live Push for ID: $sessionId');
-          navigator.push(
-            MaterialPageRoute(
-              builder: (_) => EmergencyChatScreen(sessionId: sessionId),
-            ),
-          );
-        } else {
-          safePrint('[Main] CRITICAL ERROR: Navigator state is null during Live Push!');
-        }
-      });
+      PushNotificationService.navigateToEmergencyChat(sessionId);
     }
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _ipcSub?.cancel();
     selectNotificationStream.close();
     super.dispose();
   }
@@ -195,8 +247,8 @@ class _SurakshaPlusAppState extends State<SurakshaPlusApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => BleProvider()),
-        ChangeNotifierProvider(create: (_) => SosProvider()),
+        ChangeNotifierProvider(create: (_) => BleProvider(), lazy: false),
+        ChangeNotifierProvider(create: (_) => SosProvider(), lazy: false),
         ChangeNotifierProvider(create: (_) => Esp32DebugProvider()),
         ChangeNotifierProvider(create: (_) => ModesProvider()),
         ChangeNotifierProvider(create: (_) => AssistantProvider()),

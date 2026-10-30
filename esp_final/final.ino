@@ -212,6 +212,27 @@ class SosRxCallbacks : public BLECharacteristicCallbacks {
         Serial.println("[BLE] Activity OFF");
         vibratePulse(3, 200, 200);
       }
+      // --- GPS from Phone via BLE (format: "LAT:xx.xxxx,LON:yy.yyyy") ---
+      else if (strncmp(rx, "LAT:", 4) == 0 && strstr(rx, "LON:") != NULL) {
+        char* latPtr = (char*)rx + 4;  // skip "LAT:"
+        char* comma = strchr(latPtr, ',');
+        char* lonPtr = strstr(rx, "LON:");
+        if (comma && lonPtr) {
+          int latLen = comma - latPtr;
+          if (latLen > 0 && latLen < 16) {
+            strncpy(latestLat, latPtr, latLen);
+            latestLat[latLen] = '\0';
+          }
+          strncpy(latestLon, lonPtr + 4, 15);
+          latestLon[15] = '\0';
+          // Trim trailing whitespace/newlines
+          char* nl = strchr(latestLon, '\n');
+          if (nl) *nl = '\0';
+          nl = strchr(latestLon, '\r');
+          if (nl) *nl = '\0';
+          Serial.printf("[BLE] 📍 GPS from Phone: %s, %s\n", latestLat, latestLon);
+        }
+      }
       else if (strncmp(rx, "SET_PHONE:", 10) == 0) {
         const char* phone = rx + 10;
         strncpy(ownerPhone, phone, sizeof(ownerPhone) - 1);
